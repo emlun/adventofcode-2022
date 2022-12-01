@@ -49,3 +49,5 @@ macro_rules! setup_benchmark {
         criterion::criterion_main!(benches);
     };
 }
+
+setup_benchmark!(day01);
