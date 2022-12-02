@@ -15,4 +15,4 @@ pub fn all_numbers() -> Vec<u8> {
     (1..=25).filter(|&day| get_solver(day).is_some()).collect()
 }
 
-days!(day01);
+days!(day01, day02);
