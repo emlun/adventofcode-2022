@@ -60,7 +60,7 @@ impl PlayResult {
         }
     }
 
-    fn from_opponent(&self, opp: &Move) -> Move {
+    fn when_opponent(&self, opp: &Move) -> Move {
         use Move::*;
         use PlayResult::*;
         match (self, opp) {
@@ -87,15 +87,15 @@ impl FromStr for PlayResult {
     }
 }
 
-fn solve_a(moves: &Vec<(Move, Move, PlayResult)>) -> i32 {
+fn solve_a(moves: &[(Move, Move, PlayResult)]) -> i32 {
     moves.iter().fold(0, |score, (opp, me, _)| {
         score + me.score() + me.play(opp).score()
     })
 }
 
-fn solve_b(moves: &Vec<(Move, Move, PlayResult)>) -> i32 {
+fn solve_b(moves: &[(Move, Move, PlayResult)]) -> i32 {
     moves.iter().fold(0, |score, (opp, _, result)| {
-        let me = result.from_opponent(opp);
+        let me = result.when_opponent(opp);
         score + me.score() + result.score()
     })
 }
@@ -104,7 +104,7 @@ pub fn solve(lines: &[String]) -> Solution {
     let moves: Vec<(Move, Move, PlayResult)> = lines
         .iter()
         .map(|line| {
-            let mut splits = line.split(" ");
+            let mut splits = line.split(' ');
             let l = splits.next().unwrap();
             let r = splits.next().unwrap();
             (l.parse().unwrap(), r.parse().unwrap(), r.parse().unwrap())
