@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use crate::common::Solution;
 
+#[derive(Clone, Copy)]
 enum Move {
     Rock,
     Paper,
@@ -32,6 +33,18 @@ impl Move {
     }
 }
 
+impl FromStr for Move {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "A" | "X" => Ok(Self::Rock),
+            "B" | "Y" => Ok(Self::Paper),
+            "C" | "Z" => Ok(Self::Scissors),
+            _ => Err(()),
+        }
+    }
+}
+
 enum PlayResult {
     Win,
     Loss,
@@ -46,37 +59,57 @@ impl PlayResult {
             Self::Draw => 3,
         }
     }
+
+    fn from_opponent(&self, opp: &Move) -> Move {
+        use Move::*;
+        use PlayResult::*;
+        match (self, opp) {
+            (Win, Rock) => Paper,
+            (Win, Paper) => Scissors,
+            (Win, Scissors) => Rock,
+            (Loss, Rock) => Scissors,
+            (Loss, Paper) => Rock,
+            (Loss, Scissors) => Paper,
+            (Draw, opp) => *opp,
+        }
+    }
 }
 
-impl FromStr for Move {
+impl FromStr for PlayResult {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "A" | "X" => Ok(Self::Rock),
-            "B" | "Y" => Ok(Self::Paper),
-            "C" | "Z" => Ok(Self::Scissors),
+            "X" => Ok(Self::Loss),
+            "Y" => Ok(Self::Draw),
+            "Z" => Ok(Self::Win),
             _ => Err(()),
         }
     }
 }
 
-fn solve_a(moves: &Vec<(Move, Move)>) -> i32 {
-    moves.iter().fold(0, |score, (opp, me)| {
+fn solve_a(moves: &Vec<(Move, Move, PlayResult)>) -> i32 {
+    moves.iter().fold(0, |score, (opp, me, _)| {
         score + me.score() + me.play(opp).score()
     })
 }
 
+fn solve_b(moves: &Vec<(Move, Move, PlayResult)>) -> i32 {
+    moves.iter().fold(0, |score, (opp, _, result)| {
+        let me = result.from_opponent(opp);
+        score + me.score() + result.score()
+    })
+}
+
 pub fn solve(lines: &[String]) -> Solution {
-    let moves: Vec<(Move, Move)> = lines
+    let moves: Vec<(Move, Move, PlayResult)> = lines
         .iter()
         .map(|line| {
             let mut splits = line.split(" ");
-            (
-                splits.next().unwrap().parse().unwrap(),
-                splits.next().unwrap().parse().unwrap(),
-            )
+            let l = splits.next().unwrap();
+            let r = splits.next().unwrap();
+            (l.parse().unwrap(), r.parse().unwrap(), r.parse().unwrap())
         })
         .collect();
 
-    (solve_a(&moves).to_string(), "".to_string())
+    (solve_a(&moves).to_string(), solve_b(&moves).to_string())
 }
