@@ -44,8 +44,8 @@ pub fn solve(lines: &[String]) -> Solution {
         .map(|line| {
             let (l, r) = line.split_at(line.len() / 2);
             (
-                l.as_bytes().into_iter().copied().collect(),
-                r.as_bytes().into_iter().copied().collect(),
+                l.as_bytes().iter().copied().collect(),
+                r.as_bytes().iter().copied().collect(),
             )
         })
         .collect();
