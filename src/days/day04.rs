@@ -9,6 +9,15 @@ fn solve_a(elves: &[((usize, usize), (usize, usize))]) -> usize {
         .count()
 }
 
+fn solve_b(elves: &[((usize, usize), (usize, usize))]) -> usize {
+    elves
+        .iter()
+        .filter(|((a_low, a_high), (b_low, b_high))| {
+            (a_high >= b_low && b_high >= a_low) || (b_high >= a_low && a_high >= b_low)
+        })
+        .count()
+}
+
 pub fn solve(lines: &[String]) -> Solution {
     let elves: Vec<((usize, usize), (usize, usize))> = lines
         .iter()
@@ -29,5 +38,5 @@ pub fn solve(lines: &[String]) -> Solution {
             )
         })
         .collect();
-    (solve_a(&elves).to_string(), "".to_string())
+    (solve_a(&elves).to_string(), solve_b(&elves).to_string())
 }
