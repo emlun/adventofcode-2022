@@ -1,6 +1,8 @@
 use crate::common::Solution;
 
-fn solve_a(elves: &[((usize, usize), (usize, usize))]) -> usize {
+type Interval = (usize, usize);
+
+fn solve_a(elves: &[(Interval, Interval)]) -> usize {
     elves
         .iter()
         .filter(|((a_low, a_high), (b_low, b_high))| {
@@ -9,17 +11,15 @@ fn solve_a(elves: &[((usize, usize), (usize, usize))]) -> usize {
         .count()
 }
 
-fn solve_b(elves: &[((usize, usize), (usize, usize))]) -> usize {
+fn solve_b(elves: &[(Interval, Interval)]) -> usize {
     elves
         .iter()
-        .filter(|((a_low, a_high), (b_low, b_high))| {
-            (a_high >= b_low && b_high >= a_low) || (b_high >= a_low && a_high >= b_low)
-        })
+        .filter(|((a_low, a_high), (b_low, b_high))| a_high >= b_low && b_high >= a_low)
         .count()
 }
 
 pub fn solve(lines: &[String]) -> Solution {
-    let elves: Vec<((usize, usize), (usize, usize))> = lines
+    let elves: Vec<(Interval, Interval)> = lines
         .iter()
         .map(|line| {
             let mut elf_splits = line.split(',');
