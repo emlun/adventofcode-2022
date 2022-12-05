@@ -19,6 +19,18 @@ fn solve_a(mut stacks: Vec<Vec<char>>, program: &[Instruction]) -> String {
         .collect()
 }
 
+fn solve_b(mut stacks: Vec<Vec<char>>, program: &[Instruction]) -> String {
+    for inst in program {
+        let moved_first_idx = stacks[inst.from].len() - inst.count;
+        let moved: Vec<char> = stacks[inst.from].drain(moved_first_idx..).collect();
+        stacks[inst.to].extend(moved);
+    }
+    stacks
+        .into_iter()
+        .map(|stack| *stack.last().unwrap())
+        .collect()
+}
+
 pub fn solve(lines: &[String]) -> Solution {
     let (layers, program): (Vec<Vec<Option<char>>>, Vec<Instruction>) =
         lines.iter().filter(|line| !line.is_empty()).fold(
@@ -68,5 +80,5 @@ pub fn solve(lines: &[String]) -> Solution {
             stacks
         });
 
-    (solve_a(stacks.clone(), &program), "".to_string())
+    (solve_a(stacks.clone(), &program), solve_b(stacks, &program))
 }
