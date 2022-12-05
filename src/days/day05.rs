@@ -8,7 +8,7 @@ struct Instruction {
 
 fn solve_a(mut stacks: Vec<Vec<char>>, program: &[Instruction]) -> String {
     for inst in program {
-        for i in 0..inst.count {
+        for _ in 0..inst.count {
             let moved = stacks[inst.from].pop().unwrap();
             stacks[inst.to].push(moved);
         }
@@ -52,8 +52,7 @@ pub fn solve(lines: &[String]) -> Solution {
                     }
                     layers.push(layer);
                 } else {
-                    let mut parts: Vec<&str> = line.split(' ').collect();
-
+                    let parts: Vec<&str> = line.split(' ').collect();
                     instructions.push(match parts.as_slice() {
                         ["move", count, "from", from, "to", to] => Instruction {
                             count: count.parse().unwrap(),
