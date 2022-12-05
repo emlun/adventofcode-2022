@@ -34,7 +34,7 @@ fn solve_b(mut stacks: Vec<Vec<char>>, program: &[Instruction]) -> String {
 pub fn solve(lines: &[String]) -> Solution {
     let (layers, program): (Vec<Vec<Option<char>>>, Vec<Instruction>) =
         lines.iter().filter(|line| !line.is_empty()).fold(
-            (Vec::new(), Vec::new()),
+            (Vec::new(), Vec::with_capacity(lines.len())),
             |(mut layers, mut instructions), line| {
                 if line.starts_with(' ') || line.starts_with('[') {
                     let mut chars = line.chars();
@@ -52,14 +52,11 @@ pub fn solve(lines: &[String]) -> Solution {
                     }
                     layers.push(layer);
                 } else {
-                    let parts: Vec<&str> = line.split(' ').collect();
-                    instructions.push(match parts.as_slice() {
-                        ["move", count, "from", from, "to", to] => Instruction {
-                            count: count.parse().unwrap(),
-                            from: from.parse::<usize>().unwrap() - 1,
-                            to: to.parse::<usize>().unwrap() - 1,
-                        },
-                        _ => unimplemented!(),
+                    let mut parts = line[5..].split(' ').step_by(2);
+                    instructions.push(Instruction {
+                        count: parts.next().unwrap().parse().unwrap(),
+                        from: parts.next().unwrap().parse::<usize>().unwrap() - 1,
+                        to: parts.next().unwrap().parse::<usize>().unwrap() - 1,
                     });
                 }
                 (layers, instructions)
