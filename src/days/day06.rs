@@ -1,7 +1,6 @@
 use crate::common::Solution;
 
 fn solve_a(line: &str) -> usize {
-    let mut i = 0;
     let chars: Vec<char> = line.chars().collect();
     for i in 3..line.len() {
         if chars[i - 3] != chars[i - 2]
