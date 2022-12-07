@@ -1,9 +1,9 @@
 use crate::common::Solution;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Default)]
 struct FsDir<'a> {
-    dirs: HashMap<&'a str, FsDir<'a>>,
+    dirs: BTreeMap<&'a str, FsDir<'a>>,
     files_size: usize,
 }
 
