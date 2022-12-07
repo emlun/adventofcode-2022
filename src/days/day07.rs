@@ -23,6 +23,33 @@ fn solve_a(fs_tree: &FsDir) -> usize {
     }) + fs_tree.dirs.values().map(|dir| solve_a(dir)).sum::<usize>()
 }
 
+fn visit_all<'a, 'b: 'a>(
+    mut visited: Vec<&'b FsDir<'a>>,
+    current: &'b FsDir<'a>,
+) -> Vec<&'a FsDir<'a>> {
+    visited.push(current);
+    current
+        .dirs
+        .values()
+        .fold(visited, |visited, next| visit_all(visited, next))
+}
+
+fn solve_b(fs_tree: &FsDir) -> usize {
+    const MAX_SIZE: usize = 70000000;
+    const TARGET_FREE_SIZE: usize = 30000000;
+    let size_here = total_size(fs_tree);
+
+    let delete_size = TARGET_FREE_SIZE - (MAX_SIZE - size_here);
+
+    let candidate_dirs: Vec<&FsDir> = visit_all(Vec::new(), fs_tree);
+    candidate_dirs
+        .into_iter()
+        .map(total_size)
+        .filter(|size| *size >= delete_size)
+        .min()
+        .unwrap()
+}
+
 pub fn solve(lines: &[String]) -> Solution {
     let (fs_tree, _, _): (FsDir, _, _) = lines.iter().filter(|line| !line.is_empty()).fold(
         (FsDir::default(), vec![], false),
@@ -62,5 +89,5 @@ pub fn solve(lines: &[String]) -> Solution {
         },
     );
     println!("{:?}", fs_tree);
-    (solve_a(&fs_tree).to_string(), "".to_string())
+    (solve_a(&fs_tree).to_string(), solve_b(&fs_tree).to_string())
 }
