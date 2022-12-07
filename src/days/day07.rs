@@ -49,7 +49,7 @@ fn solve_b(fs_tree: &FsDir) -> usize {
 
 pub fn solve(lines: &[String]) -> Solution {
     let (fs_tree, _, _): (FsDir, _, _) = lines.iter().filter(|line| !line.is_empty()).fold(
-        (FsDir::default(), vec![], false),
+        (FsDir::default(), Vec::new(), false),
         |(mut fs_tree, mut cwd_stack, is_ls_cmd): (FsDir, Vec<&str>, bool), line| {
             if line == "$ ls" {
                 (fs_tree, cwd_stack, true)
@@ -65,17 +65,14 @@ pub fn solve(lines: &[String]) -> Solution {
                 };
                 (fs_tree, cwd_stack, false)
             } else if is_ls_cmd {
-                let mut cwd: &mut FsDir = &mut fs_tree;
-                for cd in &cwd_stack {
-                    cwd = cwd.dirs.get_mut(cd).unwrap();
-                }
-                let mut splits = line.split(' ').peekable();
-                if splits.peek().unwrap() == &"dir" {
-                    splits.next();
-                    let name = splits.next().unwrap();
-                    cwd.dirs.insert(name, FsDir::default());
+                let cwd: &mut FsDir = cwd_stack
+                    .iter()
+                    .fold(&mut fs_tree, |mutref, cd| mutref.dirs.get_mut(cd).unwrap());
+
+                if let Some(dir_name) = line.strip_prefix("dir ") {
+                    cwd.dirs.insert(dir_name, FsDir::default());
                 } else {
-                    cwd.files_size += splits.next().unwrap().parse::<usize>().unwrap();
+                    cwd.files_size += line.split(' ').next().unwrap().parse::<usize>().unwrap();
                 }
                 (fs_tree, cwd_stack, is_ls_cmd)
             } else {
