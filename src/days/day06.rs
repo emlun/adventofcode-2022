@@ -32,11 +32,7 @@ fn solve_b(chars: &[usize], n: usize) -> usize {
 
 pub fn solve(lines: &[String]) -> Solution {
     let line = &lines[0];
-    let chars: Vec<usize> = line
-        .as_bytes()
-        .into_iter()
-        .map(|c| usize::from(*c))
-        .collect();
+    let chars: Vec<usize> = line.as_bytes().iter().map(|c| usize::from(*c)).collect();
     (
         solve_b(&chars, 4).to_string(),
         solve_b(&chars, 14).to_string(),

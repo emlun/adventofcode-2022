@@ -20,7 +20,7 @@ fn solve_a(fs_tree: &FsDir) -> usize {
         size_here
     } else {
         0
-    }) + fs_tree.dirs.values().map(|dir| solve_a(dir)).sum::<usize>()
+    }) + fs_tree.dirs.values().map(solve_a).sum::<usize>()
 }
 
 fn visit_all<'a, 'b: 'a>(
@@ -28,10 +28,7 @@ fn visit_all<'a, 'b: 'a>(
     current: &'b FsDir<'a>,
 ) -> Vec<&'a FsDir<'a>> {
     visited.push(current);
-    current
-        .dirs
-        .values()
-        .fold(visited, |visited, next| visit_all(visited, next))
+    current.dirs.values().fold(visited, visit_all)
 }
 
 fn solve_b(fs_tree: &FsDir) -> usize {
@@ -56,8 +53,8 @@ pub fn solve(lines: &[String]) -> Solution {
         |(mut fs_tree, mut cwd_stack, is_ls_cmd): (FsDir, Vec<&str>, bool), line| {
             if line == "$ ls" {
                 (fs_tree, cwd_stack, true)
-            } else if line.starts_with("$ cd ") {
-                match &line[5..] {
+            } else if let Some(cd) = line.strip_prefix("$ cd ") {
+                match cd {
                     ".." => {
                         cwd_stack.pop();
                     }
