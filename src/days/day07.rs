@@ -88,6 +88,5 @@ pub fn solve(lines: &[String]) -> Solution {
             }
         },
     );
-    println!("{:?}", fs_tree);
     (solve_a(&fs_tree).to_string(), solve_b(&fs_tree).to_string())
 }
