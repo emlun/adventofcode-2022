@@ -4,18 +4,18 @@ use std::collections::HashMap;
 #[derive(Debug, Default)]
 struct FsDir<'a> {
     dirs: HashMap<&'a str, FsDir<'a>>,
-    files: HashMap<&'a str, usize>,
+    files_size: usize,
 }
 
-fn total_size(fs_tree: &FsDir) -> usize {
-    let self_size: usize = fs_tree.files.values().sum();
-    let sub_size: usize = fs_tree.dirs.values().map(total_size).sum();
-    self_size + sub_size
+impl<'a> FsDir<'a> {
+    fn total_size(&self) -> usize {
+        self.files_size + self.dirs.values().map(FsDir::total_size).sum::<usize>()
+    }
 }
 
 fn solve_a(fs_tree: &FsDir) -> usize {
     const SIZE_LIMIT: usize = 100000;
-    let size_here = total_size(fs_tree);
+    let size_here = fs_tree.total_size();
     (if size_here <= SIZE_LIMIT {
         size_here
     } else {
@@ -34,14 +34,14 @@ fn visit_all<'a, 'b: 'a>(
 fn solve_b(fs_tree: &FsDir) -> usize {
     const MAX_SIZE: usize = 70000000;
     const TARGET_FREE_SIZE: usize = 30000000;
-    let size_here = total_size(fs_tree);
+    let size_here = fs_tree.total_size();
 
     let delete_size = TARGET_FREE_SIZE - (MAX_SIZE - size_here);
 
     let candidate_dirs: Vec<&FsDir> = visit_all(Vec::new(), fs_tree);
     candidate_dirs
         .into_iter()
-        .map(total_size)
+        .map(FsDir::total_size)
         .filter(|size| *size >= delete_size)
         .min()
         .unwrap()
@@ -75,9 +75,7 @@ pub fn solve(lines: &[String]) -> Solution {
                     let name = splits.next().unwrap();
                     cwd.dirs.insert(name, FsDir::default());
                 } else {
-                    let size = splits.next().unwrap().parse().unwrap();
-                    let name = splits.next().unwrap();
-                    cwd.files.insert(name, size);
+                    cwd.files_size += splits.next().unwrap().parse::<usize>().unwrap();
                 }
                 (fs_tree, cwd_stack, is_ls_cmd)
             } else {
