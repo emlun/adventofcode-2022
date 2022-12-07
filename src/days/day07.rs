@@ -48,37 +48,43 @@ fn solve_b(fs_tree: &FsDir) -> usize {
 }
 
 pub fn solve(lines: &[String]) -> Solution {
-    let (fs_tree, _, _): (FsDir, _, _) = lines.iter().filter(|line| !line.is_empty()).fold(
-        (FsDir::default(), Vec::new(), false),
-        |(mut fs_tree, mut cwd_stack, is_ls_cmd): (FsDir, Vec<&str>, bool), line| {
-            if line == "$ ls" {
-                (fs_tree, cwd_stack, true)
-            } else if let Some(cd) = line.strip_prefix("$ cd ") {
-                match cd {
-                    ".." => {
-                        cwd_stack.pop();
-                    }
-                    "/" => {
-                        cwd_stack.clear();
-                    }
-                    new_dir => cwd_stack.push(new_dir),
-                };
-                (fs_tree, cwd_stack, false)
-            } else if is_ls_cmd {
-                let cwd: &mut FsDir = cwd_stack
-                    .iter()
-                    .fold(&mut fs_tree, |mutref, cd| mutref.dirs.get_mut(cd).unwrap());
+    let mut fs_tree = FsDir::default();
+    let mut cwd_stack: Vec<&str> = vec![];
 
-                if let Some(dir_name) = line.strip_prefix("dir ") {
-                    cwd.dirs.insert(dir_name, FsDir::default());
-                } else {
-                    cwd.files_size += line.split(' ').next().unwrap().parse::<usize>().unwrap();
+    let mut lines = lines.iter().peekable();
+    while let Some(line) = lines.next() {
+        if let Some(cd) = line.strip_prefix("$ cd ") {
+            match cd {
+                ".." => {
+                    cwd_stack.pop();
                 }
-                (fs_tree, cwd_stack, is_ls_cmd)
-            } else {
-                unimplemented!()
+                "/" => {
+                    cwd_stack.clear();
+                }
+                new_dir => {
+                    cwd_stack.push(new_dir);
+                }
+            };
+        } else if line == "$ ls" {
+            while let Some(line) = lines.peek() {
+                if line.starts_with("$") {
+                    break;
+                } else {
+                    let cwd: &mut FsDir = cwd_stack
+                        .iter()
+                        .fold(&mut fs_tree, |mutref, cd| mutref.dirs.get_mut(cd).unwrap());
+
+                    let line = lines.next().unwrap();
+                    if let Some(dir_name) = line.strip_prefix("dir ") {
+                        cwd.dirs.insert(dir_name, FsDir::default());
+                    } else {
+                        cwd.files_size += line.split(' ').next().unwrap().parse::<usize>().unwrap();
+                    }
+                }
             }
-        },
-    );
+        } else {
+            unimplemented!()
+        }
+    }
     (solve_a(&fs_tree).to_string(), solve_b(&fs_tree).to_string())
 }
