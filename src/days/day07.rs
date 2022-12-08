@@ -67,7 +67,7 @@ pub fn solve(lines: &[String]) -> Solution {
             };
         } else if line == "$ ls" {
             while let Some(line) = lines.peek() {
-                if line.starts_with("$") {
+                if line.starts_with('$') {
                     break;
                 } else {
                     let cwd: &mut FsDir = cwd_stack
