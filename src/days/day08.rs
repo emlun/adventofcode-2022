@@ -33,16 +33,10 @@ fn solve_a(map: &[Vec<u32>]) -> usize {
     let w = map[0].len();
     let h = map.len();
 
-    let mut num_visible = 0;
-    for r in 0..w {
-        for c in 0..h {
-            if is_visible(map, r, c) {
-                num_visible += 1;
-            }
-        }
-    }
-
-    num_visible
+    (0..w)
+        .flat_map(|r| (0..h).map(move |c| (r, c)))
+        .filter(|(r, c)| is_visible(map, *r, *c))
+        .count()
 }
 
 fn solve_b(map: &[Vec<u32>]) -> usize {
