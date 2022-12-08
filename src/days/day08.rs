@@ -1,14 +1,27 @@
+use std::collections::HashSet;
+
 use crate::common::Solution;
 
-fn is_visible(map: &[Vec<u32>], r: usize, c: usize) -> bool {
-    let w = map[0].len();
-    let h = map.len();
-    let height = map[r][c];
-
-    (0..c).all(|cc| map[r][cc] < height)
-        || ((c + 1)..w).all(|cc| map[r][cc] < height)
-        || (0..r).all(|rr| map[rr][c] < height)
-        || ((r + 1)..h).all(|rr| map[rr][c] < height)
+fn count_visible<R: Clone + Iterator<Item = usize>>(
+    map: &[Vec<u32>],
+    visible: &mut HashSet<usize>,
+    mut maxes_horiz: Vec<u32>,
+    mut maxes_vert: Vec<u32>,
+    rs: R,
+    cs: R,
+) {
+    for r in rs {
+        for c in cs.clone() {
+            if map[r][c] > maxes_horiz[c] {
+                visible.insert((r << 16) | c);
+                maxes_horiz[c] = map[r][c];
+            }
+            if map[r][c] > maxes_vert[r] {
+                visible.insert((r << 16) | c);
+                maxes_vert[r] = map[r][c];
+            }
+        }
+    }
 }
 
 fn scenic_score(map: &[Vec<u32>], r: usize, c: usize) -> usize {
@@ -33,10 +46,25 @@ fn solve_a(map: &[Vec<u32>]) -> usize {
     let w = map[0].len();
     let h = map.len();
 
-    (0..w)
-        .flat_map(|r| (0..h).map(move |c| (r, c)))
-        .filter(|(r, c)| is_visible(map, *r, *c))
-        .count()
+    let mut visible: HashSet<usize> = HashSet::new();
+    count_visible(
+        map,
+        &mut visible,
+        map[0].clone(),
+        map.iter().map(|row| row[0]).collect(),
+        1..(h - 1),
+        1..(w - 1),
+    );
+    count_visible(
+        map,
+        &mut visible,
+        map.last().unwrap().clone(),
+        map.iter().map(|row| *row.last().unwrap()).collect(),
+        (1..(h - 1)).rev(),
+        (1..(w - 1)).rev(),
+    );
+
+    visible.len() + 2 * w + 2 * h - 4
 }
 
 fn solve_b(map: &[Vec<u32>]) -> usize {
