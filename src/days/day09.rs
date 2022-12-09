@@ -8,11 +8,9 @@ fn solve_b(moves: &[(i32, i32)], parts: usize) -> usize {
         pos[0].0 += dx;
         pos[0].1 += dy;
 
-        let mut any_changed = true;
-        while any_changed {
-            any_changed = false;
-
-            for i in 1..pos.len() {
+        let mut done_index = 0;
+        while (done_index + 1) < pos.len() {
+            for i in (done_index + 1)..pos.len() {
                 let dhtx: i32 = pos[i - 1].0 - pos[i].0;
                 let dhty: i32 = pos[i - 1].1 - pos[i].1;
 
@@ -20,21 +18,22 @@ fn solve_b(moves: &[(i32, i32)], parts: usize) -> usize {
                     if dhtx.abs() + dhty.abs() >= 3 {
                         pos[i].0 += dhtx.signum();
                         pos[i].1 += dhty.signum();
-                        any_changed = true;
                     } else {
                         if dhtx.abs() >= 2 {
                             pos[i].0 += dhtx.signum();
-                            any_changed = true;
                         }
                         if dhty.abs() >= 2 {
                             pos[i].1 += dhty.signum();
-                            any_changed = true;
                         }
                     }
 
                     if i == pos.len() - 1 {
                         visited.insert(pos[i]);
                     }
+                } else if i == done_index + 1 {
+                    done_index = i;
+                } else {
+                    break;
                 }
             }
         }
