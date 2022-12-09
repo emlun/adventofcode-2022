@@ -1,37 +1,83 @@
 use crate::common::Solution;
 use std::collections::HashSet;
 
-fn solve_a(moves: &[(i32, i32)]) -> usize {
-    let mut h_x = 0;
-    let mut h_y = 0;
-    let mut t_x = 0;
-    let mut t_y = 0;
+fn print_state(pos: &[(i32, i32)]) {
+    for y in (-20..=20).rev() {
+        for x in -20..=20 {
+            if let Some(i) =
+                pos.iter()
+                    .enumerate()
+                    .find_map(|(i, (px, py))| if (*px, *py) == (x, y) { Some(i) } else { None })
+            {
+                print!("{}", i);
+            } else if (x, y) == (0, 0) {
+                print!("s");
+            } else {
+                print!(".");
+            }
+        }
+        println!();
+    }
+    println!();
+}
+
+fn print_trace(visited: &HashSet<(i32, i32)>) {
+    for y in (-20..=20).rev() {
+        for x in -20..=20 {
+            if (x, y) == (0, 0) {
+                print!("s");
+            } else if visited.contains(&(x, y)) {
+                print!("#");
+            } else {
+                print!(".");
+            }
+        }
+        println!();
+    }
+    println!();
+}
+
+fn solve_b(moves: &[(i32, i32)], parts: usize) -> usize {
+    let mut pos: Vec<(i32, i32)> = vec![(0, 0); parts];
     let mut visited: HashSet<(i32, i32)> = vec![(0, 0)].into_iter().collect();
     for (dx, dy) in moves {
-        h_x += dx;
-        h_y += dy;
+        pos[0].0 += dx;
+        pos[0].1 += dy;
 
-        let mut dhtx: i32 = h_x - t_x;
-        let mut dhty: i32 = h_y - t_y;
+        let mut any_changed = true;
+        while any_changed {
+            any_changed = false;
 
-        while dhtx.abs() >= 2 || dhty.abs() >= 2 {
-            if dhtx.abs() + dhty.abs() >= 3 {
-                t_x += dhtx.signum();
-                t_y += dhty.signum();
-            } else {
-                if dhtx.abs() >= 2 {
-                    t_x += dhtx.signum();
-                }
-                if dhty.abs() >= 2 {
-                    t_y += dhty.signum();
+            for i in 1..pos.len() {
+                let dhtx: i32 = pos[i - 1].0 - pos[i].0;
+                let dhty: i32 = pos[i - 1].1 - pos[i].1;
+
+                if dhtx.abs() >= 2 || dhty.abs() >= 2 {
+                    if dhtx.abs() + dhty.abs() >= 3 {
+                        pos[i].0 += dhtx.signum();
+                        pos[i].1 += dhty.signum();
+                        any_changed = true;
+                    } else {
+                        if dhtx.abs() >= 2 {
+                            pos[i].0 += dhtx.signum();
+                            any_changed = true;
+                        }
+                        if dhty.abs() >= 2 {
+                            pos[i].1 += dhty.signum();
+                            any_changed = true;
+                        }
+                    }
+
+                    if i == pos.len() - 1 {
+                        visited.insert(pos[i]);
+                    }
                 }
             }
-
-            dhtx = h_x - t_x;
-            dhty = h_y - t_y;
-            visited.insert((t_x, t_y));
         }
+
+        // print_state(&pos);
     }
+    // print_trace(&visited);
     visited.len()
 }
 
@@ -52,5 +98,8 @@ pub fn solve(lines: &[String]) -> Solution {
             }
         })
         .collect();
-    (solve_a(&moves).to_string(), "".to_string())
+    (
+        solve_b(&moves, 2).to_string(),
+        solve_b(&moves, 10).to_string(),
+    )
 }
