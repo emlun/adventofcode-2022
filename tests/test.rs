@@ -41,3 +41,4 @@ test_day!(day05, "JRVNHHCSJ", "GNFBSBJLH");
 test_day!(day06, "1804", "2508");
 test_day!(day07, "1886043", "3842121");
 test_day!(day08, "1827", "335580");
+test_day!(day09, "5902", "2445");
