@@ -3,7 +3,7 @@ use std::ops::Mul;
 use std::ops::Sub;
 
 pub struct GridCount {
-    points: Vec<Vec<bool>>,
+    points: Vec<Vec<u64>>,
     len: usize,
 }
 
@@ -32,6 +32,20 @@ impl GridCount {
         }
     }
 
+    fn to_flag_index<T>(y: T) -> (usize, u64)
+    where
+        T: PartialOrd<i32>,
+        <T as Mul<i32>>::Output: Sub<i32>,
+        T: Mul<i32>,
+        usize: TryFrom<<<T as Mul<i32>>::Output as Sub<i32>>::Output>,
+        usize: TryFrom<<T as Mul<i32>>::Output>,
+        <usize as TryFrom<<<T as Mul<i32>>::Output as Sub<i32>>::Output>>::Error: std::fmt::Debug,
+        <usize as TryFrom<<T as Mul<i32>>::Output>>::Error: std::fmt::Debug,
+    {
+        let i = Self::to_index(y);
+        (i / 64, 1 << (i % 64))
+    }
+
     pub fn len(&self) -> usize {
         self.len
     }
@@ -47,18 +61,18 @@ impl GridCount {
         <usize as TryFrom<<T as Mul<i32>>::Output>>::Error: std::fmt::Debug,
     {
         let ix = Self::to_index(x);
-        let iy = Self::to_index(y);
+        let (iy, mask) = Self::to_flag_index(y);
         if ix >= self.points.len() {
             self.points
                 .resize((ix + 1) * 2, Vec::with_capacity((iy + 1) * 2));
         }
         if iy >= self.points[ix].len() {
-            self.points[ix].resize((iy + 1) * 2, false);
+            self.points[ix].resize((iy + 1) * 2, 0);
         }
 
-        if !self.points[ix][iy] {
+        if self.points[ix][iy] & mask == 0 {
             self.len += 1;
         }
-        self.points[ix][iy] = true;
+        self.points[ix][iy] |= mask;
     }
 }
