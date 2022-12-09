@@ -1,42 +1,6 @@
 use crate::common::Solution;
 use std::collections::HashSet;
 
-fn print_state(pos: &[(i32, i32)]) {
-    for y in (-20..=20).rev() {
-        for x in -20..=20 {
-            if let Some(i) =
-                pos.iter()
-                    .enumerate()
-                    .find_map(|(i, (px, py))| if (*px, *py) == (x, y) { Some(i) } else { None })
-            {
-                print!("{}", i);
-            } else if (x, y) == (0, 0) {
-                print!("s");
-            } else {
-                print!(".");
-            }
-        }
-        println!();
-    }
-    println!();
-}
-
-fn print_trace(visited: &HashSet<(i32, i32)>) {
-    for y in (-20..=20).rev() {
-        for x in -20..=20 {
-            if (x, y) == (0, 0) {
-                print!("s");
-            } else if visited.contains(&(x, y)) {
-                print!("#");
-            } else {
-                print!(".");
-            }
-        }
-        println!();
-    }
-    println!();
-}
-
 fn solve_b(moves: &[(i32, i32)], parts: usize) -> usize {
     let mut pos: Vec<(i32, i32)> = vec![(0, 0); parts];
     let mut visited: HashSet<(i32, i32)> = vec![(0, 0)].into_iter().collect();
@@ -74,10 +38,8 @@ fn solve_b(moves: &[(i32, i32)], parts: usize) -> usize {
                 }
             }
         }
-
-        // print_state(&pos);
     }
-    // print_trace(&visited);
+
     visited.len()
 }
 
