@@ -1,9 +1,11 @@
 use crate::common::Solution;
-use std::collections::HashSet;
+use crate::util::collections::GridCount;
 
 fn solve_b(moves: &[(i32, i32)], parts: usize) -> usize {
     let mut pos: Vec<(i32, i32)> = vec![(0, 0); parts];
-    let mut visited: HashSet<(i32, i32)> = vec![(0, 0)].into_iter().collect();
+    let mut visited: GridCount = GridCount::new();
+    visited.insert((0, 0));
+
     for (dx, dy) in moves {
         pos[0].0 += dx;
         pos[0].1 += dy;
