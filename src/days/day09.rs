@@ -1,10 +1,12 @@
 use crate::common::Solution;
 use crate::util::collections::GridCount;
 
-fn solve_b(moves: &[(i32, i32)], parts: usize) -> usize {
+fn solve_b(moves: &[(i32, i32)], parts: usize) -> (usize, usize) {
     let mut pos: Vec<(i32, i32)> = vec![(0, 0); parts];
-    let mut visited: GridCount = GridCount::new();
-    visited.insert((0, 0));
+    let mut visited_a: GridCount = GridCount::new();
+    let mut visited_b: GridCount = GridCount::new();
+    visited_a.insert((0, 0));
+    visited_b.insert((0, 0));
 
     for (dx, dy) in moves {
         pos[0].0 += dx;
@@ -29,8 +31,11 @@ fn solve_b(moves: &[(i32, i32)], parts: usize) -> usize {
                         }
                     }
 
+                    if i == 1 {
+                        visited_a.insert(pos[i]);
+                    }
                     if i == pos.len() - 1 {
-                        visited.insert(pos[i]);
+                        visited_b.insert(pos[i]);
                     }
                 } else if i == done_index + 1 {
                     done_index = i;
@@ -41,7 +46,7 @@ fn solve_b(moves: &[(i32, i32)], parts: usize) -> usize {
         }
     }
 
-    visited.len()
+    (visited_a.len(), visited_b.len())
 }
 
 pub fn solve(lines: &[String]) -> Solution {
@@ -61,8 +66,6 @@ pub fn solve(lines: &[String]) -> Solution {
             }
         })
         .collect();
-    (
-        solve_b(&moves, 2).to_string(),
-        solve_b(&moves, 10).to_string(),
-    )
+    let (sol_a, sol_b) = solve_b(&moves, 10);
+    (sol_a.to_string(), sol_b.to_string())
 }
