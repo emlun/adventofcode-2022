@@ -64,10 +64,10 @@ impl GridCount {
         let (iy, mask) = Self::to_flag_index(y);
         if ix >= self.points.len() {
             self.points
-                .resize((ix + 1) * 2, Vec::with_capacity((iy + 1) * 2));
+                .resize((ix + 1) * 4, Vec::with_capacity((iy + 1) * 10));
         }
         if iy >= self.points[ix].len() {
-            self.points[ix].resize((iy + 1) * 2, 0);
+            self.points[ix].resize((iy + 1) * 4, 0);
         }
 
         if self.points[ix][iy] & mask == 0 {
