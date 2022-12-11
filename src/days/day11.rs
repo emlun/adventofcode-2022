@@ -24,35 +24,15 @@ impl Monkey {
     }
 }
 
-fn solve_a(mut monkeys: Vec<Monkey>) -> usize {
-    let mut inspects = vec![0; monkeys.len()];
-    for _ in 0..20 {
-        for i in 0..monkeys.len() {
-            while let Some(mut worry) = monkeys[i].items.pop_front() {
-                inspects[i] += 1;
-                worry = (monkeys[i].op)(worry, monkeys[i].op_arg.unwrap_or(worry));
-                worry /= 3;
-                let dest = if worry % monkeys[i].test_divisor == 0 {
-                    monkeys[i].test_true_dest
-                } else {
-                    monkeys[i].test_false_dest
-                };
-                monkeys[dest].items.push_back(worry);
-            }
-        }
-    }
-    inspects.sort();
-    inspects[monkeys.len() - 2] * inspects[monkeys.len() - 1]
-}
-
-fn solve_b(mut monkeys: Vec<Monkey>) -> usize {
+fn solve_b(mut monkeys: Vec<Monkey>, rounds: usize, worry_decay: u64) -> usize {
     let mut inspects = vec![0; monkeys.len()];
     let all_divisors: u64 = monkeys.iter().map(|m| m.test_divisor).product();
-    for _ in 0..10000 {
+    for _ in 0..rounds {
         for i in 0..monkeys.len() {
             while let Some(mut worry) = monkeys[i].items.pop_front() {
                 inspects[i] += 1;
                 worry = (monkeys[i].op)(worry, monkeys[i].op_arg.unwrap_or(worry));
+                worry /= worry_decay;
                 worry %= all_divisors;
                 let dest = if worry % monkeys[i].test_divisor == 0 {
                     monkeys[i].test_true_dest
@@ -112,7 +92,7 @@ pub fn solve(lines: &[String]) -> Solution {
         }
     }
     (
-        solve_a(monkeys.clone()).to_string(),
-        solve_b(monkeys).to_string(),
+        solve_b(monkeys.clone(), 20, 3).to_string(),
+        solve_b(monkeys, 10000, 1).to_string(),
     )
 }
