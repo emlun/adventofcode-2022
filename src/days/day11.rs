@@ -1,15 +1,12 @@
 use crate::common::Solution;
 use std::collections::VecDeque;
 
-#[derive(Debug)]
-struct Monkey
-// where
-// F: Fn(u32) -> u32,
-{
-    items: VecDeque<u32>,
-    op: fn(u32, u32) -> u32,
-    op_arg: Option<u32>,
-    test_divisor: u32,
+#[derive(Clone, Debug)]
+struct Monkey {
+    items: VecDeque<u64>,
+    op: fn(u64, u64) -> u64,
+    op_arg: Option<u64>,
+    test_divisor: u64,
     test_true_dest: usize,
     test_false_dest: usize,
 }
@@ -18,7 +15,7 @@ impl Monkey {
     fn new() -> Self {
         Self {
             items: VecDeque::new(),
-            op: <u32 as std::ops::Add>::add,
+            op: <u64 as std::ops::Add>::add,
             op_arg: None,
             test_divisor: 0,
             test_true_dest: 0,
@@ -35,6 +32,28 @@ fn solve_a(mut monkeys: Vec<Monkey>) -> usize {
                 inspects[i] += 1;
                 worry = (monkeys[i].op)(worry, monkeys[i].op_arg.unwrap_or(worry));
                 worry /= 3;
+                let dest = if worry % monkeys[i].test_divisor == 0 {
+                    monkeys[i].test_true_dest
+                } else {
+                    monkeys[i].test_false_dest
+                };
+                monkeys[dest].items.push_back(worry);
+            }
+        }
+    }
+    inspects.sort();
+    inspects[monkeys.len() - 2] * inspects[monkeys.len() - 1]
+}
+
+fn solve_b(mut monkeys: Vec<Monkey>) -> usize {
+    let mut inspects = vec![0; monkeys.len()];
+    let all_divisors: u64 = monkeys.iter().map(|m| m.test_divisor).product();
+    for _ in 0..10000 {
+        for i in 0..monkeys.len() {
+            while let Some(mut worry) = monkeys[i].items.pop_front() {
+                inspects[i] += 1;
+                worry = (monkeys[i].op)(worry, monkeys[i].op_arg.unwrap_or(worry));
+                worry %= all_divisors;
                 let dest = if worry % monkeys[i].test_divisor == 0 {
                     monkeys[i].test_true_dest
                 } else {
@@ -66,8 +85,8 @@ pub fn solve(lines: &[String]) -> Solution {
                     let op = splits.next().unwrap();
                     let arg = splits.next().unwrap();
                     monkey.op = match op {
-                        "+" => <u32 as std::ops::Add>::add,
-                        "*" => <u32 as std::ops::Mul>::mul,
+                        "+" => <u64 as std::ops::Add>::add,
+                        "*" => <u64 as std::ops::Mul>::mul,
                         _ => unimplemented!(),
                     };
                     monkey.op_arg = if arg == "old" {
@@ -92,6 +111,8 @@ pub fn solve(lines: &[String]) -> Solution {
             unimplemented!()
         }
     }
-    println!("{:?}", monkeys);
-    (solve_a(monkeys).to_string(), "".to_string())
+    (
+        solve_a(monkeys.clone()).to_string(),
+        solve_b(monkeys).to_string(),
+    )
 }
