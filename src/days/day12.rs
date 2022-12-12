@@ -2,7 +2,10 @@ use std::collections::VecDeque;
 
 use crate::common::Solution;
 
-fn solve_a(pos: (usize, usize), goal: (usize, usize), map: &[Vec<u8>]) -> usize {
+const ASCII_A: u8 = 0x61;
+const ASCII_Z: u8 = 0x7a;
+
+fn solve_a(pos: (usize, usize), goal: (usize, usize), map: &[Vec<u8>]) -> Option<usize> {
     let mut search_map = vec![vec![None; map[0].len()]; map.len()];
     let mut poss = VecDeque::with_capacity(map.len() * 2);
     search_map[pos.0][pos.1] = Some(0);
@@ -10,7 +13,7 @@ fn solve_a(pos: (usize, usize), goal: (usize, usize), map: &[Vec<u8>]) -> usize 
 
     while let Some((r, c)) = poss.pop_front() {
         if (r, c) == goal {
-            return search_map[r][c].unwrap();
+            return Some(dbg!(search_map[r][c].unwrap()));
         } else {
             if r > 0 {
                 let rr = r - 1;
@@ -42,35 +45,56 @@ fn solve_a(pos: (usize, usize), goal: (usize, usize), map: &[Vec<u8>]) -> usize 
             }
         }
     }
-    unimplemented!()
+    None
 }
 
-const ASCII_A: u8 = 0x61;
-const ASCII_Z: u8 = 0x7a;
+fn solve_b(poss: &[(usize, usize)], goal: (usize, usize), map: &[Vec<u8>]) -> usize {
+    poss.iter()
+        .flat_map(|pos| solve_a(*pos, goal, map))
+        .min()
+        .unwrap()
+}
 
 pub fn solve(lines: &[String]) -> Solution {
-    let (pos, goal, map): ((usize, usize), (usize, usize), Vec<Vec<u8>>) =
-        lines.iter().filter(|line| !line.is_empty()).fold(
-            ((0, 0), (0, 0), Vec::with_capacity(lines.len())),
-            |(pos, goal, mut lines), line| {
-                lines.push(line.as_bytes().iter().copied().collect());
-                match (line.find('S'), line.find('E')) {
-                    (Some(pos_c), Some(goal_c)) => {
-                        lines.last_mut().unwrap()[pos_c] = ASCII_A;
-                        lines.last_mut().unwrap()[goal_c] = ASCII_Z;
-                        ((lines.len() - 1, pos_c), (lines.len() - 1, goal_c), lines)
-                    }
-                    (Some(pos_c), None) => {
-                        lines.last_mut().unwrap()[pos_c] = ASCII_A;
-                        ((lines.len() - 1, pos_c), goal, lines)
-                    }
-                    (None, Some(goal_c)) => {
-                        lines.last_mut().unwrap()[goal_c] = ASCII_Z;
-                        (pos, (lines.len() - 1, goal_c), lines)
-                    }
-                    (None, None) => (pos, goal, lines),
+    let (pos, goal, pos_b, map): (
+        (usize, usize),
+        (usize, usize),
+        Vec<(usize, usize)>,
+        Vec<Vec<u8>>,
+    ) = lines.iter().filter(|line| !line.is_empty()).fold(
+        ((0, 0), (0, 0), vec![], Vec::with_capacity(lines.len())),
+        |(pos, goal, mut pos_b, mut lines), line| {
+            lines.push(line.as_bytes().iter().copied().collect());
+            for (pos_b_c, _) in line.match_indices('a') {
+                pos_b.push((lines.len() - 1, pos_b_c));
+            }
+            match (line.find('S'), line.find('E')) {
+                (Some(pos_c), Some(goal_c)) => {
+                    lines.last_mut().unwrap()[pos_c] = ASCII_A;
+                    lines.last_mut().unwrap()[goal_c] = ASCII_Z;
+                    pos_b.push((lines.len() - 1, pos_c));
+                    (
+                        (lines.len() - 1, pos_c),
+                        (lines.len() - 1, goal_c),
+                        pos_b,
+                        lines,
+                    )
                 }
-            },
-        );
-    (solve_a(pos, goal, &map).to_string(), "".to_string())
+                (Some(pos_c), None) => {
+                    lines.last_mut().unwrap()[pos_c] = ASCII_A;
+                    pos_b.push((lines.len() - 1, pos_c));
+                    ((lines.len() - 1, pos_c), goal, pos_b, lines)
+                }
+                (None, Some(goal_c)) => {
+                    lines.last_mut().unwrap()[goal_c] = ASCII_Z;
+                    (pos, (lines.len() - 1, goal_c), pos_b, lines)
+                }
+                (None, None) => (pos, goal, pos_b, lines),
+            }
+        },
+    );
+    (
+        solve_a(pos, goal, &map).unwrap().to_string(),
+        solve_b(&pos_b, goal, &map).to_string(),
+    )
 }
