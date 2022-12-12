@@ -12,7 +12,7 @@ fn step(
     rr: usize,
     cc: usize,
     map: &[Vec<u8>],
-    search_map: &mut Vec<Vec<Option<usize>>>,
+    search_map: &mut [Vec<Option<usize>>],
     poss: &mut VecDeque<Point>,
 ) {
     let next = search_map[r][c].unwrap() + 1;
@@ -26,7 +26,7 @@ fn steps(
     r: usize,
     c: usize,
     map: &[Vec<u8>],
-    search_map: &mut Vec<Vec<Option<usize>>>,
+    search_map: &mut [Vec<Option<usize>>],
     poss: &mut VecDeque<Point>,
 ) {
     if r > 0 {
