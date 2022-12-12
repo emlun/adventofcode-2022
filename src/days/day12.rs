@@ -6,54 +6,75 @@ type Point = (usize, usize);
 const ASCII_A: u8 = 0x61;
 const ASCII_Z: u8 = 0x7a;
 
-fn solve_a(pos: (usize, usize), goal: (usize, usize), map: &[Vec<u8>]) -> Option<usize> {
+fn step(
+    r: usize,
+    c: usize,
+    rr: usize,
+    cc: usize,
+    map: &[Vec<u8>],
+    search_map: &mut Vec<Vec<Option<usize>>>,
+    poss: &mut VecDeque<Point>,
+) {
+    let next = search_map[r][c].unwrap() + 1;
+    if map[rr][cc] <= map[r][c] + 1 && search_map[rr][cc].map(|s| s > next).unwrap_or(true) {
+        search_map[rr][cc] = Some(next);
+        poss.push_back((rr, cc));
+    }
+}
+
+fn steps(
+    r: usize,
+    c: usize,
+    map: &[Vec<u8>],
+    search_map: &mut Vec<Vec<Option<usize>>>,
+    poss: &mut VecDeque<Point>,
+) {
+    if r > 0 {
+        step(r, c, r - 1, c, map, search_map, poss);
+    }
+    if r + 1 < map.len() {
+        step(r, c, r + 1, c, map, search_map, poss);
+    }
+    if c > 0 {
+        step(r, c, r, c - 1, map, search_map, poss);
+    }
+    if c + 1 < map[0].len() {
+        step(r, c, r, c + 1, map, search_map, poss);
+    }
+}
+
+fn solve_b(pos: Point, pos_b: &[Point], goal: Point, map: &[Vec<u8>]) -> (usize, usize) {
     let mut search_map = vec![vec![None; map[0].len()]; map.len()];
     let mut poss = VecDeque::with_capacity(map.len() * 2);
+    //let mut poss = VecDeque::with_capacity(map.len() * map[0].len());
     search_map[pos.0][pos.1] = Some(0);
     poss.push_back(pos);
 
     while let Some((r, c)) = poss.pop_front() {
+        steps(r, c, map, &mut search_map, &mut poss);
+
         if (r, c) == goal {
-            return Some(search_map[r][c].unwrap());
-        } else {
-            if r > 0 {
-                let rr = r - 1;
-                if map[rr][c] <= map[r][c] + 1 && search_map[rr][c].is_none() {
-                    search_map[rr][c] = Some(search_map[r][c].unwrap() + 1);
-                    poss.push_back((rr, c));
-                }
-            }
-            if r < map.len() - 1 {
-                let rr = r + 1;
-                if map[rr][c] <= map[r][c] + 1 && search_map[rr][c].is_none() {
-                    search_map[rr][c] = Some(search_map[r][c].unwrap() + 1);
-                    poss.push_back((rr, c));
-                }
-            }
-            if c > 0 {
-                let cc = c - 1;
-                if map[r][cc] <= map[r][c] + 1 && search_map[r][cc].is_none() {
-                    search_map[r][cc] = Some(search_map[r][c].unwrap() + 1);
-                    poss.push_back((r, cc));
-                }
-            }
-            if c < map[0].len() - 1 {
-                let cc = c + 1;
-                if map[r][cc] <= map[r][c] + 1 && search_map[r][cc].is_none() {
-                    search_map[r][cc] = Some(search_map[r][c].unwrap() + 1);
-                    poss.push_back((r, cc));
-                }
+            break;
+        }
+    }
+
+    let sol_a = search_map[goal.0][goal.1].unwrap();
+
+    for pos in pos_b {
+        poss.clear();
+        poss.push_back(*pos);
+        search_map[pos.0][pos.1] = Some(0);
+
+        while let Some((r, c)) = poss.pop_front() {
+            steps(r, c, map, &mut search_map, &mut poss);
+
+            if (r, c) == goal {
+                break;
             }
         }
     }
-    None
-}
 
-fn solve_b(poss: &[(usize, usize)], goal: (usize, usize), map: &[Vec<u8>]) -> usize {
-    poss.iter()
-        .flat_map(|pos| solve_a(*pos, goal, map))
-        .min()
-        .unwrap()
+    (sol_a, search_map[goal.0][goal.1].unwrap())
 }
 
 pub fn solve(lines: &[String]) -> Solution {
@@ -90,8 +111,7 @@ pub fn solve(lines: &[String]) -> Solution {
                 }
             },
         );
-    (
-        solve_a(pos, goal, &map).unwrap().to_string(),
-        solve_b(&pos_b, goal, &map).to_string(),
-    )
+
+    let (sol_a, sol_b) = solve_b(pos, &pos_b, goal, &map);
+    (sol_a.to_string(), sol_b.to_string())
 }
