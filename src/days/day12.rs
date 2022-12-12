@@ -13,7 +13,7 @@ fn solve_a(pos: (usize, usize), goal: (usize, usize), map: &[Vec<u8>]) -> Option
 
     while let Some((r, c)) = poss.pop_front() {
         if (r, c) == goal {
-            return Some(dbg!(search_map[r][c].unwrap()));
+            return Some(search_map[r][c].unwrap());
         } else {
             if r > 0 {
                 let rr = r - 1;
