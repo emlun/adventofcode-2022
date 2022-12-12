@@ -46,7 +46,6 @@ fn steps(
 fn solve_b(pos: Point, pos_b: &[Point], goal: Point, map: &[Vec<u8>]) -> (usize, usize) {
     let mut search_map = vec![vec![None; map[0].len()]; map.len()];
     let mut poss = VecDeque::with_capacity(map.len() * 2);
-    //let mut poss = VecDeque::with_capacity(map.len() * map[0].len());
     search_map[pos.0][pos.1] = Some(0);
     poss.push_back(pos);
 
@@ -60,17 +59,17 @@ fn solve_b(pos: Point, pos_b: &[Point], goal: Point, map: &[Vec<u8>]) -> (usize,
 
     let sol_a = search_map[goal.0][goal.1].unwrap();
 
+    poss.clear();
+    poss.extend(pos_b);
     for pos in pos_b {
-        poss.clear();
-        poss.push_back(*pos);
         search_map[pos.0][pos.1] = Some(0);
+    }
 
-        while let Some((r, c)) = poss.pop_front() {
-            steps(r, c, map, &mut search_map, &mut poss);
+    while let Some((r, c)) = poss.pop_front() {
+        steps(r, c, map, &mut search_map, &mut poss);
 
-            if (r, c) == goal {
-                break;
-            }
+        if (r, c) == goal {
+            break;
         }
     }
 
@@ -90,7 +89,6 @@ pub fn solve(lines: &[String]) -> Solution {
                     (Some(pos_c), Some(goal_c)) => {
                         lines.last_mut().unwrap()[pos_c] = ASCII_A;
                         lines.last_mut().unwrap()[goal_c] = ASCII_Z;
-                        pos_b.push((lines.len() - 1, pos_c));
                         (
                             (lines.len() - 1, pos_c),
                             (lines.len() - 1, goal_c),
@@ -100,7 +98,6 @@ pub fn solve(lines: &[String]) -> Solution {
                     }
                     (Some(pos_c), None) => {
                         lines.last_mut().unwrap()[pos_c] = ASCII_A;
-                        pos_b.push((lines.len() - 1, pos_c));
                         ((lines.len() - 1, pos_c), goal, pos_b, lines)
                     }
                     (None, Some(goal_c)) => {
