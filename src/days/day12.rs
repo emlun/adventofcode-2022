@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use crate::common::Solution;
 
+type Point = (usize, usize);
 const ASCII_A: u8 = 0x61;
 const ASCII_Z: u8 = 0x7a;
 
@@ -56,43 +57,39 @@ fn solve_b(poss: &[(usize, usize)], goal: (usize, usize), map: &[Vec<u8>]) -> us
 }
 
 pub fn solve(lines: &[String]) -> Solution {
-    let (pos, goal, pos_b, map): (
-        (usize, usize),
-        (usize, usize),
-        Vec<(usize, usize)>,
-        Vec<Vec<u8>>,
-    ) = lines.iter().filter(|line| !line.is_empty()).fold(
-        ((0, 0), (0, 0), vec![], Vec::with_capacity(lines.len())),
-        |(pos, goal, mut pos_b, mut lines), line| {
-            lines.push(line.as_bytes().iter().copied().collect());
-            for (pos_b_c, _) in line.match_indices('a') {
-                pos_b.push((lines.len() - 1, pos_b_c));
-            }
-            match (line.find('S'), line.find('E')) {
-                (Some(pos_c), Some(goal_c)) => {
-                    lines.last_mut().unwrap()[pos_c] = ASCII_A;
-                    lines.last_mut().unwrap()[goal_c] = ASCII_Z;
-                    pos_b.push((lines.len() - 1, pos_c));
-                    (
-                        (lines.len() - 1, pos_c),
-                        (lines.len() - 1, goal_c),
-                        pos_b,
-                        lines,
-                    )
+    let (pos, goal, pos_b, map): (Point, Point, Vec<Point>, Vec<Vec<u8>>) =
+        lines.iter().filter(|line| !line.is_empty()).fold(
+            ((0, 0), (0, 0), vec![], Vec::with_capacity(lines.len())),
+            |(pos, goal, mut pos_b, mut lines), line| {
+                lines.push(line.as_bytes().to_vec());
+                for (pos_b_c, _) in line.match_indices('a') {
+                    pos_b.push((lines.len() - 1, pos_b_c));
                 }
-                (Some(pos_c), None) => {
-                    lines.last_mut().unwrap()[pos_c] = ASCII_A;
-                    pos_b.push((lines.len() - 1, pos_c));
-                    ((lines.len() - 1, pos_c), goal, pos_b, lines)
+                match (line.find('S'), line.find('E')) {
+                    (Some(pos_c), Some(goal_c)) => {
+                        lines.last_mut().unwrap()[pos_c] = ASCII_A;
+                        lines.last_mut().unwrap()[goal_c] = ASCII_Z;
+                        pos_b.push((lines.len() - 1, pos_c));
+                        (
+                            (lines.len() - 1, pos_c),
+                            (lines.len() - 1, goal_c),
+                            pos_b,
+                            lines,
+                        )
+                    }
+                    (Some(pos_c), None) => {
+                        lines.last_mut().unwrap()[pos_c] = ASCII_A;
+                        pos_b.push((lines.len() - 1, pos_c));
+                        ((lines.len() - 1, pos_c), goal, pos_b, lines)
+                    }
+                    (None, Some(goal_c)) => {
+                        lines.last_mut().unwrap()[goal_c] = ASCII_Z;
+                        (pos, (lines.len() - 1, goal_c), pos_b, lines)
+                    }
+                    (None, None) => (pos, goal, pos_b, lines),
                 }
-                (None, Some(goal_c)) => {
-                    lines.last_mut().unwrap()[goal_c] = ASCII_Z;
-                    (pos, (lines.len() - 1, goal_c), pos_b, lines)
-                }
-                (None, None) => (pos, goal, pos_b, lines),
-            }
-        },
-    );
+            },
+        );
     (
         solve_a(pos, goal, &map).unwrap().to_string(),
         solve_b(&pos_b, goal, &map).to_string(),
