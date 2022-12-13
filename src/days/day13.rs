@@ -51,7 +51,7 @@ fn solve_a(pairs: &[(Packet, Packet)]) -> usize {
         .iter()
         .enumerate()
         .map(|(i, p)| (i + 1, p))
-        .filter(|(i, (a, b))| a <= b)
+        .filter(|(_, (a, b))| a <= b)
         .map(|(i, _)| i)
         .sum()
 }
@@ -63,22 +63,19 @@ fn solve_b(pairs: Vec<(Packet, Packet)>) -> usize {
     let mut packets: Vec<Packet> = pairs
         .into_iter()
         .flat_map(|(a, b)| std::iter::once(a).chain(std::iter::once(b)))
-        .chain(std::iter::once(divider_1.clone()))
-        .chain(std::iter::once(divider_2.clone()))
         .collect();
+
+    packets.push(divider_1.clone());
+    packets.push(divider_2.clone());
     packets.sort();
+
     packets
         .iter()
         .enumerate()
-        .find(|(_, p)| **p == divider_1)
+        .filter(|(_, p)| **p == divider_1 || **p == divider_2)
         .map(|(i, _)| i + 1)
-        .unwrap()
-        * packets
-            .iter()
-            .enumerate()
-            .find(|(_, p)| **p == divider_2)
-            .map(|(i, _)| i + 1)
-            .unwrap()
+        .take(2)
+        .product()
 }
 
 pub fn solve(lines: &[String]) -> Solution {
