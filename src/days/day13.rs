@@ -1,6 +1,6 @@
 use crate::common::Solution;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum Packet {
     Int(i32),
     Packet(Vec<Packet>),
@@ -56,6 +56,31 @@ fn solve_a(pairs: &[(Packet, Packet)]) -> usize {
         .sum()
 }
 
+fn solve_b(pairs: Vec<(Packet, Packet)>) -> usize {
+    let divider_1 = Packet::Packet(vec![Packet::Int(6)]);
+    let divider_2 = Packet::Packet(vec![Packet::Int(2)]);
+
+    let mut packets: Vec<Packet> = pairs
+        .into_iter()
+        .flat_map(|(a, b)| std::iter::once(a).chain(std::iter::once(b)))
+        .chain(std::iter::once(divider_1.clone()))
+        .chain(std::iter::once(divider_2.clone()))
+        .collect();
+    packets.sort();
+    packets
+        .iter()
+        .enumerate()
+        .find(|(_, p)| **p == divider_1)
+        .map(|(i, _)| i + 1)
+        .unwrap()
+        * packets
+            .iter()
+            .enumerate()
+            .find(|(_, p)| **p == divider_2)
+            .map(|(i, _)| i + 1)
+            .unwrap()
+}
+
 pub fn solve(lines: &[String]) -> Solution {
     let mut pairs: Vec<(Packet, Packet)> = Vec::with_capacity(lines.len() / 2);
     let mut lines = lines.iter().filter(|line| !line.is_empty());
@@ -65,5 +90,5 @@ pub fn solve(lines: &[String]) -> Solution {
             Packet::parse(lines.next().unwrap()).unwrap().0,
         ));
     }
-    (solve_a(&pairs).to_string(), "".to_string())
+    (solve_a(&pairs).to_string(), solve_b(pairs).to_string())
 }
