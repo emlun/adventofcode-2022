@@ -1,5 +1,41 @@
 use std::collections::HashMap;
 
+pub struct Sliding2<I, T> {
+    buffer: Option<T>,
+    iter: I,
+}
+
+impl<I, T> Iterator for Sliding2<I, T>
+where
+    I: Iterator<Item = T>,
+    T: Copy,
+{
+    type Item = (I::Item, I::Item);
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        self.buffer.and_then(|buffered| {
+            self.iter.next().map(|next| {
+                self.buffer = Some(next);
+                (buffered, next)
+            })
+        })
+    }
+}
+
+pub trait WithSliding
+where
+    Self: Iterator,
+    Self: Sized,
+{
+    fn sliding2(mut self) -> Sliding2<Self, Self::Item> {
+        Sliding2 {
+            buffer: self.next(),
+            iter: self,
+        }
+    }
+}
+
+impl<I> WithSliding for I where I: Iterator {}
+
 pub trait Countable<A> {
     fn counts(self) -> HashMap<A, usize>;
 }
