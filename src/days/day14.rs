@@ -89,12 +89,20 @@ pub fn solve(lines: &[String]) -> Solution {
                 if map.len() <= lmaxy {
                     map.resize((lmaxy + 1) * 2, Vec::new());
                 }
-                for y in std::cmp::min(starty, endy)..=lmaxy {
-                    if map[y].len() <= lmaxx {
-                        map[y].resize((lmaxx + 1) * 2, false);
+                for row in map
+                    .iter_mut()
+                    .take(lmaxy + 1)
+                    .skip(std::cmp::min(starty, endy))
+                {
+                    if row.len() <= lmaxx {
+                        row.resize((lmaxx + 1) * 2, false);
                     }
-                    for x in std::cmp::min(startx, endx)..=lmaxx {
-                        map[y][x] = true;
+                    for cell in row
+                        .iter_mut()
+                        .take(lmaxx + 1)
+                        .skip(std::cmp::min(startx, endx))
+                    {
+                        *cell = true;
                     }
                 }
             }
