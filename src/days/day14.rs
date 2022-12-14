@@ -1,42 +1,10 @@
-use std::collections::HashMap;
-use std::collections::VecDeque;
-
 use crate::common::Solution;
 use crate::util::iter::WithSliding;
 
 const SPAWN_X: usize = 500;
 const SPAWN_Y: usize = 0;
 
-fn print_map(orig_map: &[Vec<bool>], map: &[Vec<bool>], minx: usize, maxy: usize) {
-    let maxx = map
-        .iter()
-        .flat_map(|row| (0..row.len()).rev().find(|i| row[*i]))
-        .max()
-        .unwrap();
-
-    for y in 0..=maxy {
-        for x in (minx - 1)..=(maxx + 1) {
-            if *orig_map.get(y).and_then(|row| row.get(x)).unwrap_or(&false) {
-                print!("#");
-            } else if *map.get(y).and_then(|row| row.get(x)).unwrap_or(&false) {
-                print!("o");
-            } else if (x, y) == (SPAWN_X, SPAWN_Y) {
-                print!("X");
-            } else {
-                print!(".");
-            }
-        }
-        println!();
-    }
-    println!();
-}
-
-fn solve_a(
-    orig_map: &[Vec<bool>],
-    mut map: Vec<Vec<bool>>,
-    abyss_y: usize,
-    floor_y: usize,
-) -> usize {
+fn solve_a(mut map: Vec<Vec<bool>>, abyss_y: usize, floor_y: usize) -> usize {
     let mut resting = 0;
 
     while !map
@@ -97,13 +65,13 @@ fn solve_a(
 }
 
 fn solve_b(map: Vec<Vec<bool>>, maxy: usize) -> usize {
-    solve_a(&map, map.clone(), maxy + 4, maxy + 2)
+    solve_a(map, maxy + 4, maxy + 2)
 }
 
 pub fn solve(lines: &[String]) -> Solution {
-    let (map, maxx, maxy) = lines.iter().filter(|line| !line.is_empty()).fold(
-        (Vec::new(), 0, 0),
-        |(mut map, mut maxx, mut maxy), line| {
+    let (map, maxy) = lines.iter().filter(|line| !line.is_empty()).fold(
+        (Vec::new(), 0),
+        |(mut map, mut maxy), line| {
             for ((startx, starty), (endx, endy)) in line
                 .split(" -> ")
                 .map(|s| {
@@ -117,7 +85,6 @@ pub fn solve(lines: &[String]) -> Solution {
             {
                 let lmaxy = std::cmp::max(starty, endy);
                 let lmaxx = std::cmp::max(startx, endx);
-                maxx = std::cmp::max(maxx, lmaxx);
                 maxy = std::cmp::max(maxy, lmaxy);
                 if map.len() <= lmaxy {
                     map.resize((lmaxy + 1) * 2, Vec::new());
@@ -132,12 +99,12 @@ pub fn solve(lines: &[String]) -> Solution {
                 }
             }
 
-            (map, maxx, maxy)
+            (map, maxy)
         },
     );
 
     (
-        solve_a(&map, map.clone(), maxy + 1, maxy + 10).to_string(),
+        solve_a(map.clone(), maxy + 1, maxy + 10).to_string(),
         solve_b(map, maxy).to_string(),
     )
 }
