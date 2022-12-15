@@ -2,16 +2,16 @@ use std::collections::HashSet;
 
 use crate::common::Solution;
 
-fn map_exclusion(sensors: &[((i32, i32), (i32, i32))], y: i32) -> Vec<std::ops::Range<i32>> {
+type Point = (i32, i32);
+
+fn map_exclusion(sensors: &[(Point, Point)], y: i32) -> Vec<std::ops::Range<i32>> {
     sensors
         .iter()
         .flat_map(|((sx, sy), (bx, by))| {
             let r = sx.abs_diff(*bx) + sy.abs_diff(*by);
             let dy = y.abs_diff(*sy);
             r.checked_sub(dy).map(|check_r| {
-                let exclusion_range = (*sx - i32::try_from(check_r).unwrap())
-                    ..(*sx + 1 + i32::try_from(check_r).unwrap());
-                exclusion_range
+                (*sx - i32::try_from(check_r).unwrap())..(*sx + 1 + i32::try_from(check_r).unwrap())
             })
         })
         .fold(Vec::new(), |mut ranges, new_range| {
@@ -37,7 +37,7 @@ fn map_exclusion(sensors: &[((i32, i32), (i32, i32))], y: i32) -> Vec<std::ops::
         })
 }
 
-fn solve_a(sensors: &[((i32, i32), (i32, i32))], check_y: i32) -> i32 {
+fn solve_a(sensors: &[(Point, Point)], check_y: i32) -> i32 {
     map_exclusion(sensors, check_y)
         .into_iter()
         .map(|range| range.end - range.start)
@@ -53,7 +53,7 @@ fn solve_a(sensors: &[((i32, i32), (i32, i32))], check_y: i32) -> i32 {
         .unwrap()
 }
 
-fn solve_b(sensors: &[((i32, i32), (i32, i32))], max_coord: i32) -> i64 {
+fn solve_b(sensors: &[(Point, Point)], max_coord: i32) -> i64 {
     let range_max = max_coord + 1;
 
     for y in 0..=max_coord {
