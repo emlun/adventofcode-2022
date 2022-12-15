@@ -2,22 +2,101 @@ use std::collections::HashSet;
 
 use crate::common::Solution;
 
-const CHECK_Y: i32 = 2000000;
-// const CHECK_Y: i32 = 10;
-
-fn solve_a(sensors: &[((i32, i32), (i32, i32))]) -> usize {
+fn map_exclusion(sensors: &[((i32, i32), (i32, i32))], y: i32) -> Vec<std::ops::Range<i32>> {
+    // dbg!(y);
     sensors
         .iter()
         .flat_map(|((sx, sy), (bx, by))| {
             let r = sx.abs_diff(*bx) + sy.abs_diff(*by);
-            let dy = CHECK_Y.abs_diff(*sy);
-            let check_r = r.checked_sub(dy).unwrap_or(0);
-            let exclusion_range =
-                (*sx - i32::try_from(check_r).unwrap())..(*sx + i32::try_from(check_r).unwrap());
-            exclusion_range
+            let dy = y.abs_diff(*sy);
+            // dbg!((sx, sy, bx, by));
+            // dbg!(r, dy);
+            r.checked_sub(dy).map(|check_r| {
+                let exclusion_range = (*sx - i32::try_from(check_r).unwrap())
+                    ..(*sx + 1 + i32::try_from(check_r).unwrap());
+                exclusion_range
+            })
         })
-        .collect::<HashSet<i32>>()
-        .len()
+        .fold(Vec::new(), |mut ranges, new_range| {
+            // dbg!(&ranges, &new_range);
+            for i in 0..ranges.len() {
+                if new_range.end <= ranges[i].start {
+                    // dbg!(i);
+                    // dbg!("insert");
+                    ranges.insert(i, new_range);
+                    return ranges;
+                } else if (ranges[i].start <= new_range.start && ranges[i].end >= new_range.start)
+                    || (new_range.start <= ranges[i].start && new_range.end >= ranges[i].start)
+                {
+                    // dbg!(i);
+                    // dbg!("merge");
+                    ranges[i].start = std::cmp::min(ranges[i].start, new_range.start);
+                    ranges[i].end = std::cmp::max(ranges[i].end, new_range.end);
+
+                    // dbg!(&ranges);
+
+                    while i + 1 < ranges.len() && ranges[i].end >= ranges[i + 1].start {
+                        // dbg!("merge fwd");
+                        ranges[i].end = std::cmp::max(ranges[i].end, ranges.remove(i + 1).end);
+                        // dbg!(&ranges);
+                    }
+                    return ranges;
+                }
+            }
+
+            ranges.push(new_range);
+            // dbg!("push");
+            // dbg!(&ranges);
+            ranges
+        })
+}
+
+fn solve_a(sensors: &[((i32, i32), (i32, i32))], check_y: i32) -> i32 {
+    map_exclusion(sensors, check_y)
+        .into_iter()
+        .map(|range| range.end - range.start)
+        .sum::<i32>()
+        - i32::try_from(
+            sensors
+                .iter()
+                .map(|(_, (_, by))| *by)
+                .filter(|by| *by == check_y)
+                .collect::<HashSet<i32>>()
+                .len(),
+        )
+        .unwrap()
+}
+
+fn solve_b(sensors: &[((i32, i32), (i32, i32))], max_coord: i32) -> i64 {
+    let range_max = max_coord + 1;
+
+    for y in 0..=max_coord {
+        // for y in 217256..=max_coord {
+        // dbg!(y);
+        let exclusion = map_exclusion(sensors, y);
+        let excluded: i32 = exclusion
+            .iter()
+            .map(|range| {
+                std::cmp::max(
+                    0,
+                    std::cmp::min(range_max, range.end) - std::cmp::max(0, range.start),
+                )
+            })
+            .sum();
+        if excluded == max_coord {
+            dbg!(&exclusion, excluded);
+            let x = if exclusion[0].start == 1 {
+                0
+            } else if exclusion.len() == 1 {
+                max_coord
+            } else {
+                exclusion[0].end
+            };
+            dbg!(x, y);
+            return i64::from(x) * 4000000 + i64::from(y);
+        }
+    }
+    unimplemented!()
 }
 
 pub fn solve(lines: &[String]) -> Solution {
@@ -49,5 +128,13 @@ pub fn solve(lines: &[String]) -> Solution {
             )
         })
         .collect();
-    (solve_a(&sensors).to_string(), "".to_string())
+
+    (
+        solve_a(&sensors, 2000000).to_string(),
+        solve_b(&sensors, 4000000).to_string(),
+    )
+    // (
+    // solve_a(&sensors, 10).to_string(),
+    // solve_b(&sensors, 20).to_string(),
+    // )
 }
