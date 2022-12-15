@@ -54,42 +54,6 @@ fn solve_a(sensors: &[(Point, Point)], check_y: i32) -> i32 {
 }
 
 fn solve_b(sensors: &[(Point, Point)], max_coord: i32) -> i64 {
-    // Sensor range:
-    // |x - sx| + |y - sy| <= r
-
-    // Outside range:
-    // x - sx + y - sy > r     if x >= sx, y >= sy
-    // sx - x + y - sy > r     if x <  sx, y >= sy
-    // x - sx + sy - y > r     if x >= sx, y <  sy
-    // sx - x + sy - y > r     if x <  sx, y <  sy
-
-    // Boundaries:
-    //  x + y = r + sx + sy + 1
-    // -x + y = r - sx + sy + 1
-    //  x - y = r + sx - sy + 1
-    // -x - y = r - sx - sy + 1
-
-    // Pair each [x+y] eqn with each [x-y] eqn
-    // from 2 different sensors
-    // Gives 4 linear equation systems:
-    // x + y =  r2 + sx2 + sy2 + 1 = b1
-    // x - y = -r1 + sx1 - sy1 - 1 = b2
-
-    // x + y = -r2 + sx2 + sy2 - 1 = b1
-    // x - y = -r1 + sx1 - sy1 - 1 = b2
-
-    // x + y =  r2 + sx2 + sy2 + 1 = b1
-    // x - y =  r1 + sx1 - sy1 + 1 = b2
-
-    // x + y = -r2 + sx2 + sy2 - 1 = b1
-    // x - y =  r1 + sx1 - sy1 + 1 = b2
-
-    // Each eqn. system gives 1 candidate point:
-    // x + y = b1
-    // x - y = b2
-    // x = (b1 + b2) / 2
-    // y = (b1 - b2) / 2
-
     for (i1, ((sx1, sy1), (bx1, by1))) in sensors.iter().enumerate() {
         let r1: i32 = i32::try_from(sx1.abs_diff(*bx1) + sy1.abs_diff(*by1)).unwrap();
 
@@ -126,8 +90,6 @@ fn solve_b(sensors: &[(Point, Point)], max_coord: i32) -> i64 {
         }
     }
 
-    // If solution is not on the boundary of two sensors,
-    // it must be in a corner of the permitted region.
     for x in [0, max_coord] {
         for y in [0, max_coord] {
             if sensors.iter().all(|((sx, sy), (bx, by))| {
