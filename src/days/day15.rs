@@ -54,30 +54,92 @@ fn solve_a(sensors: &[(Point, Point)], check_y: i32) -> i32 {
 }
 
 fn solve_b(sensors: &[(Point, Point)], max_coord: i32) -> i64 {
-    let range_max = max_coord + 1;
+    // Sensor range:
+    // |x - sx| + |y - sy| <= r
 
-    for y in 0..=max_coord {
-        let exclusion = map_exclusion(sensors, y);
-        let excluded: i32 = exclusion
-            .iter()
-            .map(|range| {
-                std::cmp::max(
-                    0,
-                    std::cmp::min(range_max, range.end) - std::cmp::max(0, range.start),
-                )
-            })
-            .sum();
-        if excluded == max_coord {
-            let x = if exclusion[0].start == 1 {
-                0
-            } else if exclusion.len() == 1 {
-                max_coord
-            } else {
-                exclusion[0].end
-            };
-            return i64::from(x) * 4000000 + i64::from(y);
+    // Outside range:
+    // x - sx + y - sy > r     if x >= sx, y >= sy
+    // sx - x + y - sy > r     if x <  sx, y >= sy
+    // x - sx + sy - y > r     if x >= sx, y <  sy
+    // sx - x + sy - y > r     if x <  sx, y <  sy
+
+    // Boundaries:
+    //  x + y = r + sx + sy + 1
+    // -x + y = r - sx + sy + 1
+    //  x - y = r + sx - sy + 1
+    // -x - y = r - sx - sy + 1
+
+    // Pair each [x+y] eqn with each [x-y] eqn
+    // from 2 different sensors
+    // Gives 4 linear equation systems:
+    // x + y =  r2 + sx2 + sy2 + 1 = b1
+    // x - y = -r1 + sx1 - sy1 - 1 = b2
+
+    // x + y = -r2 + sx2 + sy2 - 1 = b1
+    // x - y = -r1 + sx1 - sy1 - 1 = b2
+
+    // x + y =  r2 + sx2 + sy2 + 1 = b1
+    // x - y =  r1 + sx1 - sy1 + 1 = b2
+
+    // x + y = -r2 + sx2 + sy2 - 1 = b1
+    // x - y =  r1 + sx1 - sy1 + 1 = b2
+
+    // Each eqn. system gives 1 candidate point:
+    // x + y = b1
+    // x - y = b2
+    // x = (b1 + b2) / 2
+    // y = (b1 - b2) / 2
+
+    for (i1, ((sx1, sy1), (bx1, by1))) in sensors.iter().enumerate() {
+        let r1: i32 = i32::try_from(sx1.abs_diff(*bx1) + sy1.abs_diff(*by1)).unwrap();
+
+        for ((sx2, sy2), (bx2, by2)) in sensors[i1 + 1..].iter() {
+            let r2: i32 = i32::try_from(sx2.abs_diff(*bx2) + sy2.abs_diff(*by2)).unwrap();
+            let b1s: [i32; 4] = [
+                r2 + sx2 + sy2 + 1,
+                -r2 + sx2 + sy2 - 1,
+                r2 + sx2 + sy2 + 1,
+                -r2 + sx2 + sy2 - 1,
+            ];
+            let b2s: [i32; 4] = [
+                -r1 + sx1 - sy1 - 1,
+                -r1 + sx1 - sy1 - 1,
+                r1 + sx1 - sy1 + 1,
+                r1 + sx1 - sy1 + 1,
+            ];
+
+            for (b1, b2) in b1s.iter().zip(b2s) {
+                let x = (b1 + b2) / 2;
+                let y = (b1 - b2) / 2;
+
+                if (0..=max_coord).contains(&x)
+                    && (0..=max_coord).contains(&y)
+                    && sensors.iter().all(|((sx, sy), (bx, by))| {
+                        let r = sx.abs_diff(*bx) + sy.abs_diff(*by);
+                        let d = sx.abs_diff(x) + sy.abs_diff(y);
+                        d > r
+                    })
+                {
+                    return i64::from(x) * 4000000 + i64::from(y);
+                }
+            }
         }
     }
+
+    // If solution is not on the boundary of two sensors,
+    // it must be in a corner of the permitted region.
+    for x in [0, max_coord] {
+        for y in [0, max_coord] {
+            if sensors.iter().all(|((sx, sy), (bx, by))| {
+                let r = sx.abs_diff(*bx) + sy.abs_diff(*by);
+                let d = sx.abs_diff(x) + sy.abs_diff(y);
+                d > r
+            }) {
+                return i64::from(x) * 4000000 + i64::from(y);
+            }
+        }
+    }
+
     unimplemented!()
 }
 
