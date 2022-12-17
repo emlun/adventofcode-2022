@@ -76,10 +76,8 @@ fn solve_b(jet: &[bool], rocks_a: usize, rocks_b: usize) -> (usize, usize) {
                 if x + ROCKS[rock_i].width < W {
                     x += 1;
                 }
-            } else {
-                if x > 0 {
-                    x -= 1;
-                }
+            } else if x > 0 {
+                x -= 1;
             }
 
             y -= 1;
@@ -99,11 +97,9 @@ fn solve_b(jet: &[bool], rocks_a: usize, rocks_b: usize) -> (usize, usize) {
                         *xx += 1;
                     }
                 }
-            } else {
-                if points.iter().all(|(xx, _)| *xx > 0) {
-                    for (xx, _) in points.iter_mut() {
-                        *xx -= 1;
-                    }
+            } else if points.iter().all(|(xx, _)| *xx > 0) {
+                for (xx, _) in points.iter_mut() {
+                    *xx -= 1;
                 }
             }
 
@@ -144,7 +140,7 @@ fn solve_b(jet: &[bool], rocks_a: usize, rocks_b: usize) -> (usize, usize) {
         rock_i = (rock_i + 1) % ROCKS.len();
         states
             .entry((jet_i, rock_i))
-            .or_insert(vec![])
+            .or_default()
             .push((num_settled, h));
     }
 
