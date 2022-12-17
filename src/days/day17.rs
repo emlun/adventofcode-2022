@@ -35,108 +35,22 @@ const ROCKS: [Rock; 5] = [
     },
 ];
 
-fn solve_a<I>(mut jet: I) -> usize
-where
-    I: Iterator<Item = bool>,
-{
-    let mut rocks = ROCKS.iter().cycle();
-    let mut num_settled: usize = 0;
-    let mut settled: HashSet<Point> = HashSet::with_capacity(2022 * 5);
-    let mut h = 0;
-
-    while num_settled < 2022 {
-        let rock = rocks.next().unwrap();
-        let mut x = 2;
-        let mut y = h + 3;
-
-        while y > h {
-            if jet.next().unwrap() {
-                if x + rock.width < W {
-                    x += 1;
-                }
-            } else {
-                if x > 0 {
-                    x -= 1;
-                }
-            }
-
-            y -= 1;
-        }
-
-        let mut points: Vec<Point> = rock
-            .points
-            .iter()
-            .map(|(xx, yy)| (*xx + x, *yy + y))
-            .collect();
-
-        loop {
-            let jet_dir = jet.next().unwrap();
-            if jet_dir {
-                if points.iter().all(|(xx, _)| xx + 1 < W) {
-                    for (xx, _) in points.iter_mut() {
-                        *xx += 1;
-                    }
-                }
-            } else {
-                if points.iter().all(|(xx, _)| *xx > 0) {
-                    for (xx, _) in points.iter_mut() {
-                        *xx -= 1;
-                    }
-                }
-            }
-
-            if points.iter().any(|p| settled.contains(p)) {
-                if jet_dir {
-                    for (xx, _) in points.iter_mut() {
-                        *xx -= 1;
-                    }
-                } else {
-                    for (xx, _) in points.iter_mut() {
-                        *xx += 1;
-                    }
-                }
-            }
-
-            if points.iter().all(|(_, yy)| *yy > 0) {
-                for (_, yy) in points.iter_mut() {
-                    *yy -= 1;
-                }
-            } else {
-                break;
-            }
-
-            if points.iter().any(|p| settled.contains(p)) {
-                for (_, yy) in points.iter_mut() {
-                    *yy += 1;
-                }
-                break;
-            }
-        }
-
-        h = std::cmp::max(h, 1 + points.iter().map(|(_, yy)| *yy).max().unwrap());
-        settled.extend(points.into_iter());
-        num_settled += 1;
-    }
-
-    h
-}
-
-fn solve_b(jet: &[bool]) -> usize {
+fn solve_b(jet: &[bool], rocks_a: usize, rocks_b: usize) -> (usize, usize) {
     let mut num_settled: usize = 0;
     let mut settled: HashSet<Point> = HashSet::with_capacity(2022 * 5);
     let mut jet_i = 0;
     let mut rock_i = 0;
     let mut h = 0;
-    let mut hs: Vec<usize> = Vec::new();
-    let mut jet_is: Vec<usize> = Vec::new();
-    let mut rock_is: Vec<usize> = Vec::new();
     let mut states: HashMap<(usize, usize), Vec<(usize, usize)>> = HashMap::new();
-    hs.push(0);
-    jet_is.push(0);
-    rock_is.push(0);
     states.insert((0, 0), vec![(0, 0)]);
 
-    while num_settled < 1000000000000 {
+    let mut sol_a = 0;
+
+    while num_settled < rocks_a * 10 {
+        if num_settled == rocks_a {
+            sol_a = h;
+        }
+
         if let Some(st) = states.get(&(jet_i, rock_i)) {
             if st.len() > 2 {
                 let diffs: Vec<(usize, usize)> = st[1..]
@@ -146,9 +60,9 @@ fn solve_b(jet: &[bool]) -> usize {
                     .collect();
                 if diffs[1..].iter().all(|dh| *dh == diffs[0]) {
                     let (drock, dh) = diffs[0];
-                    if (1000000000000 - num_settled) % drock == 0 {
-                        let n = (1000000000000 - num_settled) / drock;
-                        return h + n * dh;
+                    if (rocks_b - num_settled) % drock == 0 {
+                        let n = (rocks_b - num_settled) / drock;
+                        return (sol_a, h + n * dh);
                     }
                 }
             }
@@ -228,16 +142,13 @@ fn solve_b(jet: &[bool]) -> usize {
         settled.extend(points.into_iter());
         num_settled += 1;
         rock_i = (rock_i + 1) % ROCKS.len();
-        hs.push(h);
-        jet_is.push(jet_i);
-        rock_is.push(rock_i);
         states
             .entry((jet_i, rock_i))
             .or_insert(vec![])
             .push((num_settled, h));
     }
 
-    h
+    unimplemented!("Failed to find solution within 10 times part 1 solution")
 }
 
 pub fn solve(lines: &[String]) -> Solution {
@@ -251,8 +162,7 @@ pub fn solve(lines: &[String]) -> Solution {
         })
         .collect();
 
-    (
-        solve_a(jet.iter().copied().cycle()).to_string(),
-        solve_b(&jet).to_string(),
-    )
+    let (sol_a, sol_b) = solve_b(&jet, 2022, 1000000000000);
+
+    (sol_a.to_string(), sol_b.to_string())
 }
