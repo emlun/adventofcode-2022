@@ -39,17 +39,20 @@ impl Ord for State {
     }
 }
 
-fn generate_moves(
-    state: &State,
-    valves: &HashMap<u128, Valve>,
-    move_map: &HashMap<u128, Vec<(u128, u32)>>,
-) -> Vec<State> {
+fn generate_moves<'a, 'b>(
+    state: &'a State,
+    valves: &'b HashMap<u128, Valve>,
+    move_map: &'b HashMap<u128, Vec<(u128, u32)>>,
+) -> impl Iterator<Item = State> + 'a
+where
+    'b: 'a,
+{
     state
         .players
         .iter()
         .enumerate()
         .filter(|(_, p)| p.t < state.max_t)
-        .flat_map(|(i, player)| {
+        .flat_map(move |(i, player)| {
             move_map[&player.pos]
                 .iter()
                 .filter(|(_, dt)| player.t + *dt + 1 < state.max_t)
@@ -88,7 +91,6 @@ fn generate_moves(
                     }
                 })
         })
-        .collect()
 }
 
 fn bfs(valves: &HashMap<u128, Valve>, from: u128) -> Vec<(u128, u32)> {
