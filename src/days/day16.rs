@@ -176,7 +176,7 @@ pub fn solve(lines: &[String]) -> Solution {
                 .next()
                 .and_then(|s| {
                     s.strip_prefix(" tunnel leads to valve ")
-                        .or(s.strip_prefix(" tunnels lead to valves "))
+                        .or_else(|| s.strip_prefix(" tunnels lead to valves "))
                 })
                 .unwrap()
                 .split(", ")
