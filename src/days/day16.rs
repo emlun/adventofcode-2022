@@ -1,210 +1,165 @@
-use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::VecDeque;
 
 use crate::common::Solution;
 
-struct Valve<'a> {
+#[derive(Debug)]
+struct Valve {
     rate: u32,
-    tunnels: Vec<&'a str>,
+    tunnels: Vec<u128>,
 }
 
 #[derive(Eq, PartialEq)]
-struct State<'a> {
+struct State {
     max_t: u32,
     t: u32,
-    pos: Vec<&'a str>,
-    opened: Vec<&'a str>,
+    max_potential: u32,
+    opened: u128,
     locked_rate: u32,
     released: u32,
+    players: Vec<Player>,
 }
 
-impl<'a> State<'a> {
-    fn max_potential(&self) -> u32 {
-        self.released
-            + if self.t < self.max_t {
-                self.locked_rate * (self.max_t - self.t - 1)
-            } else {
-                0
-            }
-    }
-
-    fn finished(&self) -> bool {
-        self.locked_rate == 0 || self.t >= self.max_t
-    }
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct Player {
+    t: u32,
+    pos: u128,
 }
 
-impl<'a> PartialOrd for State<'a> {
+impl PartialOrd for State {
     fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(rhs))
     }
 }
 
-impl<'a> Ord for State<'a> {
+impl Ord for State {
     fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
-        (self.max_potential(), self.released).cmp(&(rhs.max_potential(), rhs.released))
+        self.max_potential.cmp(&rhs.max_potential)
     }
 }
 
-fn dijkstra<'a>(valves: &HashMap<&str, Valve<'a>>, num_pos: usize, max_t: u32) -> Option<u32> {
-    let relevant_valves = valves.values().map(|v| v.rate).count();
+fn generate_moves(
+    state: &State,
+    valves: &HashMap<u128, Valve>,
+    move_map: &HashMap<u128, Vec<(u128, u32)>>,
+) -> Vec<State> {
+    state
+        .players
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.t < state.max_t)
+        .flat_map(|(i, player)| {
+            move_map[&player.pos]
+                .iter()
+                .filter(|(_, dt)| player.t + *dt + 1 < state.max_t)
+                .filter(|(next_pos, _)| state.opened & next_pos == 0)
+                .map(move |(next_pos, dt)| {
+                    let player_t = player.t + dt + 1;
+                    let players: Vec<Player> = state
+                        .players
+                        .iter()
+                        .enumerate()
+                        .map(|(ii, p)| {
+                            if ii == i {
+                                Player {
+                                    t: player_t,
+                                    pos: *next_pos,
+                                }
+                            } else {
+                                *p
+                            }
+                        })
+                        .collect();
+
+                    let t = players.iter().map(|p| p.t).min().unwrap();
+                    let released =
+                        state.released + valves[next_pos].rate * (state.max_t - player_t);
+                    let locked_rate = state.locked_rate - valves[next_pos].rate;
+
+                    State {
+                        max_t: state.max_t,
+                        t,
+                        max_potential: released + (state.max_t - t - 1) * locked_rate,
+                        opened: state.opened | next_pos,
+                        locked_rate,
+                        released,
+                        players,
+                    }
+                })
+        })
+        .collect()
+}
+
+fn bfs(valves: &HashMap<u128, Valve>, from: u128) -> Vec<(u128, u32)> {
+    let mut queue: VecDeque<u128> = VecDeque::new();
+    let mut shortest: HashMap<u128, u32> = HashMap::with_capacity(valves.len());
+
+    shortest.insert(from, 0);
+    queue.push_back(from);
+
+    while let Some(pos) = queue.pop_front() {
+        for next in &valves[&pos].tunnels {
+            if !shortest.contains_key(next) {
+                shortest.insert(*next, shortest[&pos] + 1);
+                queue.push_back(*next);
+            }
+        }
+    }
+
+    shortest
+        .into_iter()
+        .filter(|(pos, _)| valves[pos].rate > 0)
+        .collect()
+}
+
+fn astar(
+    valves: &HashMap<u128, Valve>,
+    move_map: &HashMap<u128, Vec<(u128, u32)>>,
+    num_pos: usize,
+    max_t: u32,
+) -> u32 {
     let mut queue: BinaryHeap<State> = BinaryHeap::new();
-    let mut visited: HashMap<(u32, Vec<&str>, Vec<&str>), u32> = HashMap::new();
-    // assert_eq!(num_pos, 1);
+    let mut visited: HashMap<u128, u32> = HashMap::new();
+    let mut best = 0;
 
     queue.push(State {
         t: 0,
         max_t,
-        pos: vec!["AA"; num_pos],
-        opened: vec![],
+        opened: 0,
         locked_rate: valves.values().map(|v| v.rate).sum(),
         released: 0,
+        max_potential: valves.values().map(|v| v.rate).sum::<u32>() * max_t,
+        players: vec![Player { t: 0, pos: 1 }; num_pos],
     });
 
     while let Some(state) = queue.pop() {
-        // println!(
-        //     "{}\tv={}\tt={}  r={}  m={}  o={}/{}  l={}  {:?} {:?}",
-        //     queue.len(),
-        //     visited.len(),
-        //     state.t,
-        //     state.released,
-        //     state.max_potential(),
-        //     state.opened.len(),
-        //     relevant_valves,
-        //     state.locked_rate,
-        //     state.pos,
-        //     state.opened,
-        // );
-        // assert!(state.released <= state.max_potential());
-
-        if state.finished() {
-            return Some(state.released);
+        if state.max_potential <= best {
+            return best;
         } else if visited
-            .get(&(state.t, state.pos.clone(), state.opened.clone()))
+            .get(&state.opened)
             .map(|b| *b <= state.released)
             .unwrap_or(true)
         {
-            let mut legal_moves: Vec<Vec<Option<&str>>> = state
-                .pos
-                .iter()
-                .map(|pos| {
-                    let mut moves = Vec::new();
-                    if !state.opened.contains(pos) && valves[pos].rate > 0 {
-                        moves.push(None);
-                    }
-                    moves.extend(valves[pos].tunnels.iter().copied().map(Some));
-                    moves
-                })
-                .collect();
-            // assert_eq!(legal_moves.len(), num_pos);
-            // dbg!(&legal_moves);
-
-            for i in 0..num_pos {
-                let dup_is: Vec<usize> = state.pos[i + 1..]
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, pos)| **pos == state.pos[i])
-                    .map(|(ii, _)| ii + i + 1)
-                    .collect();
-                // dbg!(&dup_is);
-                // assert_eq!(dup_is.len(), 0);
-                for ii in dup_is {
-                    legal_moves[ii].retain(Option::is_some);
-                }
-            }
-
-            // dbg!(&legal_moves);
-
-            let mut move_is = vec![0; num_pos];
-            while move_is[0] < legal_moves[0].len() {
-                // dbg!(&move_is);
-                let next_move: Vec<Option<&str>> = legal_moves
-                    .iter()
-                    .zip(move_is.iter())
-                    .map(|(moves, i)| moves[*i])
-                    .collect();
-                // dbg!(&next_move);
-
-                // assert_eq!(next_move.len(), num_pos);
-
-                let mut i = num_pos - 1;
-                move_is[i] += 1;
-                while i > 0 && move_is[i] >= legal_moves[i].len() {
-                    move_is[i] = 0;
-                    move_is[i - 1] += 1;
-                    i -= 1;
-                }
-
-                let opening: Vec<&str> = state
-                    .pos
-                    .iter()
-                    .enumerate()
-                    .filter(|(i, _)| next_move[*i].is_none())
-                    .map(|(_, m)| *m)
-                    .collect();
-                // dbg!(&opening);
-                // assert!(opening.len() <= num_pos);
-
-                let op = {
-                    let mut o = state.opened.clone();
-                    o.extend(opening.iter());
-                    o.sort();
-                    o
-                };
-
-                let mut next_pos: Vec<&str> = next_move
-                    .iter()
-                    .enumerate()
-                    .map(|(i, m)| m.unwrap_or(state.pos[i]))
-                    .collect();
-                next_pos.sort();
-                // assert_eq!(next_pos.len(), num_pos);
-
-                // dbg!(state.rate + opening.iter().map(|pos| valves[pos].rate).sum::<u32>());
-                // dbg!(op.iter().map(|pos| valves[pos].rate).sum::<u32>());
-
-                let drate = opening.iter().map(|pos| valves[pos].rate).sum::<u32>();
-                // assert!(drate <= state.locked_rate);
-                // dbg!(drate);
-                let next_state = State {
-                    t: if drate == state.locked_rate {
-                        state.max_t
-                    } else {
-                        state.t + 1
-                    },
-                    max_t: state.max_t,
-                    pos: next_pos.clone(),
-                    opened: op.clone(),
-                    locked_rate: state.locked_rate - drate,
-                    released: state.released + drate * (state.max_t - state.t - 1),
-                };
-                // assert!(next_state.released >= state.released);
-
-                if visited
-                    .get(&(next_state.t, next_pos.clone(), op.clone()))
-                    .map(|b| *b < next_state.released)
-                    .unwrap_or(true)
+            for next_state in generate_moves(&state, valves, move_map) {
+                if next_state.max_potential > best
+                    && visited
+                        .get(&next_state.opened)
+                        .map(|b| *b < next_state.released)
+                        .unwrap_or(true)
                 {
-                    visited.insert((next_state.t, next_pos, op), next_state.released);
+                    best = std::cmp::max(best, next_state.released);
+                    visited.insert(next_state.opened, next_state.released);
                     queue.push(next_state);
                 }
             }
         }
     }
-    None
-}
-
-fn solve_a(valves: &HashMap<&str, Valve>, max_time: u32) -> u32 {
-    dijkstra(valves, 1, max_time).unwrap()
-}
-
-fn solve_b(valves: &HashMap<&str, Valve>, max_time: u32) -> u32 {
-    dijkstra(valves, 2, max_time - 4).unwrap()
+    best
 }
 
 pub fn solve(lines: &[String]) -> Solution {
-    let valves: HashMap<&str, Valve> = lines
+    let mut valves: Vec<(&str, u32, Vec<&str>)> = lines
         .iter()
         .filter(|line| !line.is_empty())
         .map(|line| {
@@ -226,12 +181,44 @@ pub fn solve(lines: &[String]) -> Solution {
                 .unwrap()
                 .split(", ")
                 .collect();
-            (name, Valve { rate, tunnels })
+            (name, rate, tunnels)
+        })
+        .collect();
+    valves.sort_by_key(|(n, _, _)| *n);
+
+    let valve_flags: HashMap<&str, u128> = valves
+        .iter()
+        .map(|(n, _, _)| n)
+        .enumerate()
+        .map(|(i, n)| (*n, 1 << i))
+        .collect();
+
+    let flag_valves: HashMap<u128, Valve> = valves
+        .into_iter()
+        .map(|(name, rate, tunnels)| {
+            (
+                valve_flags[name],
+                Valve {
+                    rate,
+                    tunnels: tunnels.into_iter().map(|n| valve_flags[n]).collect(),
+                },
+            )
         })
         .collect();
 
+    let relevant_positions: Vec<u128> = flag_valves
+        .iter()
+        .filter(|(i, v)| **i == 1 || v.rate > 0)
+        .map(|(i, _)| *i)
+        .collect();
+
+    let move_map: HashMap<u128, Vec<(u128, u32)>> = relevant_positions
+        .iter()
+        .map(|i| (*i, bfs(&flag_valves, *i)))
+        .collect();
+
     (
-        solve_a(&valves, 30).to_string(),
-        solve_b(&valves, 30).to_string(),
+        astar(&flag_valves, &move_map, 1, 30).to_string(),
+        astar(&flag_valves, &move_map, 2, 30 - 4).to_string(),
     )
 }
