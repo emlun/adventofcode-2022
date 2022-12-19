@@ -76,8 +76,8 @@ fn solve_b(jet: &[bool], rocks_a: usize, rocks_b: usize) -> (usize, usize) {
                 if x + ROCKS[rock_i].width < W {
                     x += 1;
                 }
-            } else if x > 0 {
-                x -= 1;
+            } else {
+                x = x.saturating_sub(1);
             }
 
             y -= 1;
