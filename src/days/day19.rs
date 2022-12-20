@@ -31,12 +31,6 @@ impl State {
     }
 }
 
-// #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-// struct Player {
-//     t: u32,
-//     pos: u128,
-// }
-
 impl PartialOrd for State {
     fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(rhs))
@@ -78,6 +72,11 @@ where
                 .iter()
                 .enumerate()
                 .all(|(ingredient, qty)| state.resources[ingredient] >= *qty)
+                && (recipe.output == 3
+                    || !blueprint.recipes.iter().all(|rcp| {
+                        rcp.ingredients[recipe.output] <= state.resources[recipe.output]
+                            && rcp.ingredients[recipe.output] <= state.robots[recipe.output]
+                    }))
         })
         .map(|recipe| Some((recipe.output, &recipe.ingredients)))
         .chain(Some(None))
@@ -104,29 +103,7 @@ where
         })
 }
 
-// fn bfs(valves: &HashMap<u128, Valve>, from: u128) -> Vec<(u128, u32)> {
-//     let mut queue: VecDeque<u128> = VecDeque::new();
-//     let mut shortest: HashMap<u128, u32> = HashMap::with_capacity(valves.len());
-
-//     shortest.insert(from, 0);
-//     queue.push_back(from);
-
-//     while let Some(pos) = queue.pop_front() {
-//         for next in &valves[&pos].tunnels {
-//             if !shortest.contains_key(next) {
-//                 shortest.insert(*next, shortest[&pos] + 1);
-//                 queue.push_back(*next);
-//             }
-//         }
-//     }
-
-//     shortest
-//         .into_iter()
-//         .filter(|(pos, _)| valves[pos].rate > 0)
-//         .collect()
-// }
-
-fn search(blueprint: &Blueprint, max_t: usize) -> u32 {
+fn astar(blueprint: &Blueprint, max_t: usize) -> u32 {
     let mut queue: BinaryHeap<State> = BinaryHeap::new();
     let mut visited: HashMap<usize, HashMap<Vec<u32>, Vec<u32>>> = HashMap::new();
     let mut best = 0;
@@ -137,18 +114,15 @@ fn search(blueprint: &Blueprint, max_t: usize) -> u32 {
         resources: vec![0; 4],
         robots: vec![1, 0, 0, 0],
     };
-    visited
-        .entry(init_state.t)
-        .or_default()
-        .insert(init_state.robots.clone(), init_state.resources.clone());
     queue.push(init_state);
 
     while let Some(state) = queue.pop() {
         // println!(
-        //     "q={} \tv={} \tt={} \tb={} \tp={} \tbot={:?} \tres={:?}",
+        //     "q={} \tv={} \tt={}/{} \tb={} \tp={} \tbot={:?} \tres={:?}",
         //     queue.len(),
         //     visited.values().map(HashMap::len).sum::<usize>(),
         //     state.t,
+        //     max_t,
         //     best,
         //     state.max_potential(),
         //     state.robots,
@@ -188,7 +162,9 @@ fn search(blueprint: &Blueprint, max_t: usize) -> u32 {
                         .entry(next_state.t)
                         .or_default()
                         .insert(next_state.robots.clone(), next_state.resources.clone());
-                    queue.push(next_state);
+                    if next_state.t < max_t {
+                        queue.push(next_state);
+                    }
                 }
             }
         }
@@ -199,9 +175,18 @@ fn search(blueprint: &Blueprint, max_t: usize) -> u32 {
 fn solve_a(blueprints: &[Blueprint], max_t: usize) -> usize {
     blueprints
         .iter()
-        .map(|b| b.id * usize::try_from(search(b, max_t)).unwrap())
-        // .map(|b| dbg!(b.id) * dbg!(usize::try_from(search(b, max_t)).unwrap()))
+        .map(|b| b.id * dbg!(usize::try_from(astar(b, max_t)).unwrap()))
         .sum()
+}
+
+fn solve_b(blueprints: &[Blueprint], max_t: usize) -> u32 {
+    let bests: Vec<u32> = blueprints
+        .iter()
+        .take(3)
+        .map(|b| dbg!(astar(b, max_t)))
+        .collect();
+    dbg!(&bests);
+    bests.into_iter().product()
 }
 
 pub fn solve(lines: &[String]) -> Solution {
@@ -297,5 +282,8 @@ pub fn solve(lines: &[String]) -> Solution {
         })
         .collect();
 
-    (solve_a(&blueprints, 24).to_string(), "".to_string())
+    (
+        solve_a(&blueprints, 24).to_string(),
+        solve_b(&blueprints, 32).to_string(),
+    )
 }
