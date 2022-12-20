@@ -156,8 +156,7 @@ fn solve_a(blueprints: &[Blueprint], max_t: usize) -> usize {
 }
 
 fn solve_b(blueprints: &[Blueprint], max_t: usize) -> u32 {
-    let bests: Vec<u32> = blueprints.iter().take(3).map(|b| astar(b, max_t)).collect();
-    bests.into_iter().product()
+    blueprints.iter().take(3).map(|b| astar(b, max_t)).product()
 }
 
 pub fn solve(lines: &[String]) -> Solution {
