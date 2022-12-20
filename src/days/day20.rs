@@ -1,7 +1,9 @@
+use std::collections::VecDeque;
+
 use crate::common::Solution;
 
 fn mix(nums: &[isize], times: usize) -> Vec<isize> {
-    let mut file: Vec<(usize, isize)> = nums.iter().copied().enumerate().collect();
+    let mut file: VecDeque<(usize, isize)> = nums.iter().copied().enumerate().collect();
     let n = isize::try_from(file.len() - 1).unwrap();
     for _ in 0..times {
         for orig_i in 0..nums.len() {
@@ -11,14 +13,10 @@ fn mix(nums: &[isize], times: usize) -> Vec<isize> {
                 .find(|(_, (oi, _))| *oi == orig_i)
                 .map(|(i, _)| i)
                 .unwrap();
-            let (orig_i, v) = file.remove(i);
+            let (orig_i, v) = file.remove(i).unwrap();
             let new_i: usize =
                 usize::try_from((isize::try_from(i).unwrap() + v).rem_euclid(n)).unwrap();
-            if new_i == 0 {
-                file.push((orig_i, v));
-            } else {
-                file.insert(new_i, (orig_i, v))
-            }
+            file.insert(new_i, (orig_i, v))
         }
     }
 
