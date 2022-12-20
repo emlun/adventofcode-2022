@@ -1,6 +1,5 @@
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
-use std::collections::VecDeque;
 
 use crate::common::Solution;
 
@@ -39,20 +38,7 @@ impl PartialOrd for State {
 
 impl Ord for State {
     fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
-        (
-            self.max_potential(),
-            self.robots[3],
-            self.robots[2],
-            self.robots[1],
-            self.robots[0],
-        )
-            .cmp(&(
-                rhs.max_potential(),
-                rhs.robots[3],
-                rhs.robots[2],
-                rhs.robots[1],
-                rhs.robots[0],
-            ))
+        self.max_potential().cmp(&rhs.max_potential())
     }
 }
 
@@ -67,20 +53,22 @@ where
         .recipes
         .iter()
         .filter(|recipe| {
+            recipe.output == 3
+                || !blueprint.recipes.iter().all(|rcp| {
+                    rcp.ingredients[recipe.output] <= state.resources[recipe.output]
+                        && rcp.ingredients[recipe.output] <= state.robots[recipe.output]
+                })
+        })
+        .filter(|recipe| {
             recipe
                 .ingredients
                 .iter()
                 .enumerate()
                 .all(|(ingredient, qty)| state.resources[ingredient] >= *qty)
-                && (recipe.output == 3
-                    || !blueprint.recipes.iter().all(|rcp| {
-                        rcp.ingredients[recipe.output] <= state.resources[recipe.output]
-                            && rcp.ingredients[recipe.output] <= state.robots[recipe.output]
-                    }))
         })
         .map(|recipe| Some((recipe.output, &recipe.ingredients)))
         .chain(Some(None))
-        .map(|mv| State {
+        .map(|make_robot| State {
             max_t: state.max_t,
             t: state.t + 1,
             resources: state
@@ -88,14 +76,15 @@ where
                 .iter()
                 .enumerate()
                 .map(|(res, have_qty)| {
-                    have_qty + state.robots[res] - mv.map(|(_, cost)| cost[res]).unwrap_or(0)
+                    have_qty + state.robots[res]
+                        - make_robot.map(|(_, cost)| cost[res]).unwrap_or(0)
                 })
                 .collect(),
             robots: state
                 .robots
                 .iter()
                 .enumerate()
-                .map(|(typ, num)| match mv {
+                .map(|(typ, num)| match make_robot {
                     Some((mk, _)) if mk == typ => num + 1,
                     _ => *num,
                 })
@@ -117,31 +106,18 @@ fn astar(blueprint: &Blueprint, max_t: usize) -> u32 {
     queue.push(init_state);
 
     while let Some(state) = queue.pop() {
-        // println!(
-        //     "q={} \tv={} \tt={}/{} \tb={} \tp={} \tbot={:?} \tres={:?}",
-        //     queue.len(),
-        //     visited.values().map(HashMap::len).sum::<usize>(),
-        //     state.t,
-        //     max_t,
-        //     best,
-        //     state.max_potential(),
-        //     state.robots,
-        //     state.resources,
-        // );
-
         if state.max_potential() <= best {
             return best;
-        } else if state.t < max_t
-            && visited
-                .get(&state.t)
-                .and_then(|v| v.get(&state.robots))
-                .map(|v| {
-                    v.iter()
-                        .zip(state.resources.iter())
-                        .all(|(vr, sr)| sr >= vr)
-                        || v.iter().zip(state.resources.iter()).any(|(vr, sr)| sr > vr)
-                })
-                .unwrap_or(true)
+        } else if visited
+            .get(&state.t)
+            .and_then(|v| v.get(&state.robots))
+            .map(|v| {
+                v.iter()
+                    .zip(state.resources.iter())
+                    .all(|(vr, sr)| sr >= vr)
+                    || v.iter().zip(state.resources.iter()).any(|(vr, sr)| sr > vr)
+            })
+            .unwrap_or(true)
         {
             for next_state in generate_moves(&state, blueprint) {
                 if visited
@@ -175,17 +151,12 @@ fn astar(blueprint: &Blueprint, max_t: usize) -> u32 {
 fn solve_a(blueprints: &[Blueprint], max_t: usize) -> usize {
     blueprints
         .iter()
-        .map(|b| b.id * dbg!(usize::try_from(astar(b, max_t)).unwrap()))
+        .map(|b| b.id * usize::try_from(astar(b, max_t)).unwrap())
         .sum()
 }
 
 fn solve_b(blueprints: &[Blueprint], max_t: usize) -> u32 {
-    let bests: Vec<u32> = blueprints
-        .iter()
-        .take(3)
-        .map(|b| dbg!(astar(b, max_t)))
-        .collect();
-    dbg!(&bests);
+    let bests: Vec<u32> = blueprints.iter().take(3).map(|b| astar(b, max_t)).collect();
     bests.into_iter().product()
 }
 
