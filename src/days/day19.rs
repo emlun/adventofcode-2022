@@ -38,7 +38,7 @@ impl PartialOrd for State {
 
 impl Ord for State {
     fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
-        self.max_potential().cmp(&rhs.max_potential())
+        (self.max_potential(), self.robots[3]).cmp(&(rhs.max_potential(), rhs.robots[3]))
     }
 }
 
@@ -127,9 +127,6 @@ fn astar(blueprint: &Blueprint, max_t: usize) -> u32 {
                         v.iter()
                             .zip(next_state.resources.iter())
                             .any(|(vr, sr)| sr > vr)
-                            || v.iter()
-                                .zip(next_state.resources.iter())
-                                .all(|(vr, sr)| sr >= vr)
                     })
                     .unwrap_or(true)
                 {
