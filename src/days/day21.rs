@@ -70,14 +70,44 @@ impl Expr {
         }
     }
 
-    fn reciprocal(self) -> Self {
+    fn solve(lhs: Self, rhs: Self) -> i64 {
         use Expr::*;
-        match self {
-            Unknown => Self::op(Num(1), Operation::Div, Unknown),
-            n @ Num(..) => Self::op(Num(1), Operation::Div, n),
-            Op(a, Operation::Div, b) => Op(b, Operation::Div, a),
-            a @ Op(..) => Self::op(Num(1), Operation::Div, a),
-        }
+        use Operation::*;
+
+        let (lhs, rhs) = match (lhs.simplify(), rhs.simplify()) {
+            (Unknown, b) => return b.unwrap(),
+
+            (Op(a1, aop, a2), Num(b)) => match (a1.simplify(), aop, a2.simplify()) {
+                (a1, Add, Num(a2)) => (a1, Num(b - a2)),
+                (a1, Sub, Num(a2)) => (a1, Num(b + a2)),
+                (a1, Mul, Num(a2)) => (a1, Expr::op(Num(b), Div, Num(a2))),
+                (a1, Div, Num(a2)) => (a1, Num(b * a2)),
+
+                (Num(a1), Add, a2) => (a2, Num(b - a1)),
+                (Num(a1), Sub, a2) => (a2, Num(a1 - b)),
+                (Num(a1), Mul, a2) => (a2, Expr::op(Num(b), Div, Num(a1))),
+                (Num(a1), Div, a2) => (a2, Expr::op(Num(a1), Div, Num(b))),
+
+                (a1, aop, a2) => (Expr::op(a1, aop, a2), Num(b)),
+            },
+
+            (Op(a1, aop, a2), b) => match (a1.simplify(), aop, a2.simplify()) {
+                (Unknown, Add, a) => (Unknown, Expr::op(b, Sub, a)),
+                (Unknown, Sub, a) => (Unknown, Expr::op(b, Add, a)),
+                (Unknown, Mul, a) => (Unknown, Expr::op(b, Div, a)),
+                (Unknown, Div, a) => (Unknown, Expr::op(b, Mul, a)),
+
+                (a, Add, Unknown) => (Unknown, Expr::op(b, Sub, a)),
+                (a, Sub, Unknown) => (Unknown, Expr::op(a, Sub, b)),
+                (a, Mul, Unknown) => (Unknown, Expr::op(b, Div, a)),
+                (a, Div, Unknown) => (Unknown, Expr::op(a, Mul, b)),
+
+                (a1, aop, a2) => (Expr::op(a1, aop, a2), b),
+            },
+
+            (l, r) => (r, l),
+        };
+        Self::solve(lhs, rhs)
     }
 }
 
@@ -109,51 +139,8 @@ fn solve_a(monkeys: &HashMap<&str, Instruction>) -> i64 {
 }
 
 fn solve_b(monkeys: &HashMap<&str, Instruction>) -> i64 {
-    use Expr::*;
-    use Operation::*;
-
-    if let Op(lhs, _, rhs) = expr(monkeys, "root") {
-        let mut lhs = lhs.simplify();
-        let mut rhs = rhs.simplify();
-
-        loop {
-            println!("lhs = {:?}", lhs);
-            println!("rhs = {:?}", rhs);
-
-            (lhs, rhs) = match (lhs.simplify(), rhs.simplify()) {
-                (Unknown, b) => return b.unwrap(),
-
-                (Op(a1, aop, a2), Num(b)) => match (a1.simplify(), aop, a2.simplify()) {
-                    (a1, Add, Num(a2)) => (a1, Num(b - a2)),
-                    (a1, Sub, Num(a2)) => (a1, Num(b + a2)),
-                    (a1, Mul, Num(a2)) => (a1, Expr::op(Num(b), Div, Num(a2))),
-                    (a1, Div, Num(a2)) => (a1, Num(b * a2)),
-
-                    (Num(a1), Add, a2) => (a2, Num(b - a1)),
-                    (Num(a1), Sub, a2) => (a2, Num(a1 - b)),
-                    (Num(a1), Mul, a2) => (a2, Expr::op(Num(b), Div, Num(a1))),
-                    (Num(a1), Div, a2) => (a2, Expr::op(Num(a1), Div, Num(b))),
-
-                    (a1, aop, a2) => (Expr::op(a1, aop, a2), Num(b)),
-                },
-
-                (Op(a1, aop, a2), b) => match (a1.simplify(), aop, a2.simplify()) {
-                    (Unknown, Add, a) => (Unknown, Expr::op(b, Sub, a)),
-                    (Unknown, Sub, a) => (Unknown, Expr::op(b, Add, a)),
-                    (Unknown, Mul, a) => (Unknown, Expr::op(b, Div, a)),
-                    (Unknown, Div, a) => (Unknown, Expr::op(b, Mul, a)),
-
-                    (a, Add, Unknown) => (Unknown, Expr::op(b, Sub, a)),
-                    (a, Sub, Unknown) => (Unknown, Expr::op(a, Sub, b)),
-                    (a, Mul, Unknown) => (Unknown, Expr::op(b, Div, a)),
-                    (a, Div, Unknown) => (Unknown, Expr::op(a, Mul, b)),
-
-                    (a1, aop, a2) => (Expr::op(a1, aop, a2), b),
-                },
-
-                (l, r) => (r, l),
-            };
-        }
+    if let Expr::Op(lhs, _, rhs) = expr(monkeys, "root") {
+        Expr::solve(*lhs, *rhs)
     } else {
         unimplemented!()
     }
