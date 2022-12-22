@@ -1,36 +1,6 @@
-use std::collections::HashMap;
-
 use crate::common::Solution;
 
 const CUBE_SIDE: usize = 50;
-// const CUBE_SIDE: usize = 4;
-
-fn print_trace(map: &Map, poss: &[(usize, usize, usize)]) {
-    for r in 0..*map.maxxr.iter().max().unwrap() {
-        for c in 0..*map.maxxc.iter().max().unwrap() {
-            if let Some((_, _, dir)) = poss.iter().find(|(rr, cc, _)| (*rr, *cc) == (r, c)) {
-                print!(
-                    "{}",
-                    match dir {
-                        0 => '>',
-                        1 => 'v',
-                        2 => '<',
-                        3 => '^',
-                        _ => unimplemented!(),
-                    }
-                );
-            } else if map.walls.get(r).and_then(|row| row.get(c)) == Some(&true) {
-                print!("#");
-            } else if r >= map.minir[c] && r < map.maxxr[c] && c >= map.minic[r] && c < map.maxxc[r]
-            {
-                print!(".");
-            } else {
-                print!(" ");
-            }
-        }
-        println!("")
-    }
-}
 
 struct Connections {
     from: (usize, usize),
@@ -220,7 +190,6 @@ fn solve_b(map: &Map, path_len: &[usize], path_turn: &[bool]) -> usize {
     for i in 0..path_len.len() {
         for _ in 1..=path_len[i] {
             poss.push((r, c, dir));
-            dbg!((r, c));
 
             let (dr, dc): (isize, isize) = match dir {
                 0 => (0, 1),
@@ -241,7 +210,6 @@ fn solve_b(map: &Map, path_len: &[usize], path_turn: &[bool]) -> usize {
             {
                 let face_x: usize = c / CUBE_SIDE;
                 let face_y: usize = r / CUBE_SIDE;
-                dbg!((r, c), (nr, nc), (face_x, face_y));
                 let connections = MY_CUBE_CONNECTIONS
                     .iter()
                     .find(|conn| conn.from == (face_x, face_y))
@@ -254,8 +222,6 @@ fn solve_b(map: &Map, path_len: &[usize], path_turn: &[bool]) -> usize {
                     _ => unimplemented!(),
                 };
 
-                dbg!(connection.to, connection.rot);
-
                 let nrl = nr.rem_euclid(CUBE_SIDE as isize);
                 let ncl = nc.rem_euclid(CUBE_SIDE as isize);
 
@@ -264,8 +230,6 @@ fn solve_b(map: &Map, path_len: &[usize], path_turn: &[bool]) -> usize {
                 nr = (connection.to.1 * CUBE_SIDE) as isize + nrlt;
                 nc = (connection.to.0 * CUBE_SIDE) as isize + nclt;
                 ndir = (dir + connection.rot) % 4;
-
-                dbg!((nrl, ncl), (nrlt, nclt), (nr, nc), ndir);
             }
 
             if map.walls[usize::try_from(nr).unwrap()][usize::try_from(nc).unwrap()] {
@@ -283,8 +247,6 @@ fn solve_b(map: &Map, path_len: &[usize], path_turn: &[bool]) -> usize {
             None => dir,
         };
     }
-
-    print_trace(&map, &poss);
 
     (r + 1) * 1000 + (c + 1) * 4 + dir
 }
