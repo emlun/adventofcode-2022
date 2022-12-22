@@ -2,6 +2,147 @@ use std::collections::HashMap;
 
 use crate::common::Solution;
 
+const CUBE_SIDE: usize = 50;
+// const CUBE_SIDE: usize = 4;
+
+fn print_trace(map: &Map, poss: &[(usize, usize, usize)]) {
+    for r in 0..*map.maxxr.iter().max().unwrap() {
+        for c in 0..*map.maxxc.iter().max().unwrap() {
+            if let Some((_, _, dir)) = poss.iter().find(|(rr, cc, _)| (*rr, *cc) == (r, c)) {
+                print!(
+                    "{}",
+                    match dir {
+                        0 => '>',
+                        1 => 'v',
+                        2 => '<',
+                        3 => '^',
+                        _ => unimplemented!(),
+                    }
+                );
+            } else if map.walls.get(r).and_then(|row| row.get(c)) == Some(&true) {
+                print!("#");
+            } else if r >= map.minir[c] && r < map.maxxr[c] && c >= map.minic[r] && c < map.maxxc[r]
+            {
+                print!(".");
+            } else {
+                print!(" ");
+            }
+        }
+        println!("")
+    }
+}
+
+struct Connections {
+    from: (usize, usize),
+    up: Connection,
+    down: Connection,
+    left: Connection,
+    right: Connection,
+}
+
+struct Connection {
+    to: (usize, usize),
+    rot: usize,
+}
+
+const MY_CUBE_CONNECTIONS: [Connections; 6] = [
+    Connections {
+        from: (1, 0),
+        right: Connection { to: (2, 0), rot: 0 },
+        down: Connection { to: (1, 1), rot: 0 },
+        left: Connection { to: (0, 2), rot: 2 },
+        up: Connection { to: (0, 3), rot: 1 },
+    },
+    Connections {
+        from: (1, 1),
+        right: Connection { to: (2, 0), rot: 3 },
+        down: Connection { to: (1, 2), rot: 0 },
+        left: Connection { to: (0, 2), rot: 3 },
+        up: Connection { to: (1, 0), rot: 0 },
+    },
+    Connections {
+        from: (1, 2),
+        right: Connection { to: (2, 0), rot: 2 },
+        down: Connection { to: (0, 3), rot: 1 },
+        left: Connection { to: (0, 2), rot: 0 },
+        up: Connection { to: (1, 1), rot: 0 },
+    },
+    Connections {
+        from: (0, 2),
+        right: Connection { to: (1, 2), rot: 0 },
+        down: Connection { to: (0, 3), rot: 0 },
+        left: Connection { to: (1, 0), rot: 2 },
+        up: Connection { to: (1, 1), rot: 1 },
+    },
+    Connections {
+        from: (0, 3),
+        right: Connection { to: (1, 2), rot: 3 },
+        down: Connection { to: (2, 0), rot: 0 },
+        left: Connection { to: (1, 0), rot: 3 },
+        up: Connection { to: (0, 2), rot: 1 },
+    },
+    Connections {
+        from: (2, 0),
+        right: Connection { to: (1, 2), rot: 2 },
+        down: Connection { to: (1, 1), rot: 1 },
+        left: Connection { to: (1, 0), rot: 0 },
+        up: Connection { to: (0, 3), rot: 0 },
+    },
+];
+
+// const MY_CUBE_CONNECTIONS: [Connections; 6] = [
+//     Connections {
+//         from: (2, 0),
+//         right: Connection { to: (3, 2), rot: 2 },
+//         down: Connection { to: (2, 1), rot: 0 },
+//         left: Connection { to: (1, 1), rot: 3 },
+//         up: Connection { to: (0, 1), rot: 2 },
+//     },
+//     Connections {
+//         from: (0, 1),
+//         right: Connection { to: (0, 2), rot: 0 },
+//         down: Connection { to: (2, 2), rot: 2 },
+//         left: Connection { to: (3, 2), rot: 1 },
+//         up: Connection { to: (2, 0), rot: 2 },
+//     },
+//     Connections {
+//         from: (1, 1),
+//         right: Connection { to: (2, 1), rot: 0 },
+//         down: Connection { to: (2, 2), rot: 3 },
+//         left: Connection { to: (0, 1), rot: 0 },
+//         up: Connection { to: (2, 0), rot: 1 },
+//     },
+//     Connections {
+//         from: (2, 1),
+//         right: Connection { to: (3, 2), rot: 1 },
+//         down: Connection { to: (2, 2), rot: 0 },
+//         left: Connection { to: (1, 1), rot: 0 },
+//         up: Connection { to: (2, 0), rot: 0 },
+//     },
+//     Connections {
+//         from: (2, 2),
+//         right: Connection { to: (3, 2), rot: 0 },
+//         down: Connection { to: (0, 1), rot: 2 },
+//         left: Connection { to: (1, 1), rot: 1 },
+//         up: Connection { to: (2, 1), rot: 0 },
+//     },
+//     Connections {
+//         from: (3, 2),
+//         right: Connection { to: (2, 0), rot: 2 },
+//         down: Connection { to: (0, 1), rot: 3 },
+//         left: Connection { to: (2, 2), rot: 0 },
+//         up: Connection { to: (2, 1), rot: 3 },
+//     },
+// ];
+
+fn rot((x, y): (isize, isize), r: usize) -> (isize, isize) {
+    if r >= 1 {
+        rot(((CUBE_SIDE - 1) as isize - y, x), r - 1)
+    } else {
+        (x, y)
+    }
+}
+
 struct Map {
     minic: Vec<usize>,
     maxxc: Vec<usize>,
@@ -69,6 +210,85 @@ fn solve_a(map: &Map, path_len: &[usize], path_turn: &[bool]) -> usize {
     (r + 1) * 1000 + (c + 1) * 4 + dir
 }
 
+fn solve_b(map: &Map, path_len: &[usize], path_turn: &[bool]) -> usize {
+    let mut c = map.minic[0];
+    let mut r = map.minir[c];
+    let mut dir = 0;
+
+    let mut poss = vec![];
+
+    for i in 0..path_len.len() {
+        for _ in 1..=path_len[i] {
+            poss.push((r, c, dir));
+            dbg!((r, c));
+
+            let (dr, dc): (isize, isize) = match dir {
+                0 => (0, 1),
+                1 => (1, 0),
+                2 => (0, -1),
+                3 => (-1, 0),
+                _ => unimplemented!(),
+            };
+
+            let mut nr: isize = r as isize + dr;
+            let mut nc: isize = c as isize + dc;
+            let mut ndir = dir;
+
+            if nr < map.minir[c] as isize
+                || nr >= map.maxxr[c] as isize
+                || nc < map.minic[r] as isize
+                || nc >= map.maxxc[r] as isize
+            {
+                let face_x: usize = c / CUBE_SIDE;
+                let face_y: usize = r / CUBE_SIDE;
+                dbg!((r, c), (nr, nc), (face_x, face_y));
+                let connections = MY_CUBE_CONNECTIONS
+                    .iter()
+                    .find(|conn| conn.from == (face_x, face_y))
+                    .unwrap();
+                let connection = match dir {
+                    0 => &connections.right,
+                    1 => &connections.down,
+                    2 => &connections.left,
+                    3 => &connections.up,
+                    _ => unimplemented!(),
+                };
+
+                dbg!(connection.to, connection.rot);
+
+                let nrl = nr.rem_euclid(CUBE_SIDE as isize);
+                let ncl = nc.rem_euclid(CUBE_SIDE as isize);
+
+                let (nclt, nrlt) = rot((ncl, nrl), connection.rot);
+
+                nr = (connection.to.1 * CUBE_SIDE) as isize + nrlt;
+                nc = (connection.to.0 * CUBE_SIDE) as isize + nclt;
+                ndir = (dir + connection.rot) % 4;
+
+                dbg!((nrl, ncl), (nrlt, nclt), (nr, nc), ndir);
+            }
+
+            if map.walls[usize::try_from(nr).unwrap()][usize::try_from(nc).unwrap()] {
+                break;
+            } else {
+                r = nr as usize;
+                c = nc as usize;
+                dir = ndir;
+            }
+        }
+
+        dir = match path_turn.get(i) {
+            Some(true) => (dir + 1) % 4,
+            Some(false) => (dir + 3) % 4,
+            None => dir,
+        };
+    }
+
+    print_trace(&map, &poss);
+
+    (r + 1) * 1000 + (c + 1) * 4 + dir
+}
+
 pub fn solve(lines: &[String]) -> Solution {
     let mut map: Map = lines
         .iter()
@@ -120,6 +340,6 @@ pub fn solve(lines: &[String]) -> Solution {
 
     (
         solve_a(&map, &path_len, &path_turn).to_string(),
-        "".to_string(),
+        solve_b(&map, &path_len, &path_turn).to_string(),
     )
 }
