@@ -14,14 +14,6 @@ struct State {
 
 const DIRECTIONS: [Point; 4] = [(0, 1), (0, -1), (-1, 0), (1, 0)];
 
-fn rot((x, y): Point, r: usize) -> Point {
-    if r >= 1 {
-        rot((-y, x), r - 1)
-    } else {
-        (x, y)
-    }
-}
-
 fn step(state: &State) -> Option<State> {
     let proposals: HashMap<Point, Point> = state
         .map
@@ -41,9 +33,8 @@ fn step(state: &State) -> Option<State> {
                 .take(4)
                 .copied()
                 .find_map(|(dx, dy)| {
-                    let (ddx, ddy) = rot((dx, dy), 1);
                     let (xx, yy) = (x + dx, y + dy);
-                    if (-1..=1).all(|k| !state.map.contains(&(xx - k * ddx, yy - k * ddy))) {
+                    if (-1..=1).all(|k| !state.map.contains(&(xx - k * dy, yy - k * dx))) {
                         Some(((x, y), (xx, yy)))
                     } else {
                         None
