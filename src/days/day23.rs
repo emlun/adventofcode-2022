@@ -40,11 +40,15 @@ fn step(state: &State) -> Option<State> {
                 .skip(state.first_dir)
                 .take(4)
                 .copied()
-                .find(|(dx, dy)| {
-                    let (ddx, ddy) = rot((*dx, *dy), 1);
-                    (-1..=1).all(|k| !state.map.contains(&(x + dx - k * ddx, y + dy - k * ddy)))
+                .find_map(|(dx, dy)| {
+                    let (ddx, ddy) = rot((dx, dy), 1);
+                    let (xx, yy) = (x + dx, y + dy);
+                    if (-1..=1).all(|k| !state.map.contains(&(xx - k * ddx, yy - k * ddy))) {
+                        Some(((x, y), (xx, yy)))
+                    } else {
+                        None
+                    }
                 })
-                .map(|(dx, dy)| ((x, y), (x + dx, y + dy)))
         })
         .collect();
 
