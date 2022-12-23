@@ -138,7 +138,7 @@ fn solve_a(map: &Map, path_len: &[usize], path_turn: &[bool]) -> usize {
     let mut r = map.minir[c];
     let mut dir = 0;
 
-    for i in 0..path_len.len() {
+    for (i, l) in path_len.iter().copied().enumerate() {
         let h = map.maxxr[c] - map.minir[c];
         let w = map.maxxc[r] - map.minic[r];
 
@@ -150,7 +150,7 @@ fn solve_a(map: &Map, path_len: &[usize], path_turn: &[bool]) -> usize {
             _ => unimplemented!(),
         };
 
-        let dx = (1..=path_len[i])
+        let dx = (1..=l)
             .take_while(|dx| {
                 let nr = map.minir[c] + (r - map.minir[c] + dr * dx) % h;
                 let nc = map.minic[r] + (c - map.minic[r] + dc * dx) % w;
@@ -187,8 +187,8 @@ fn solve_b(map: &Map, path_len: &[usize], path_turn: &[bool]) -> usize {
 
     let mut poss = vec![];
 
-    for i in 0..path_len.len() {
-        for _ in 1..=path_len[i] {
+    for (i, l) in path_len.iter().copied().enumerate() {
+        for _ in 1..=l {
             poss.push((r, c, dir));
 
             let (dr, dc): (isize, isize) = match dir {
