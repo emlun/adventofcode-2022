@@ -3,15 +3,17 @@ use std::collections::HashSet;
 
 use crate::common::Solution;
 
+type Point = (isize, isize);
+
 #[derive(Clone)]
 struct State {
-    map: HashSet<(isize, isize)>,
+    map: HashSet<Point>,
     first_dir: usize,
 }
 
-const DIRECTIONS: [(isize, isize); 4] = [(0, 1), (0, -1), (-1, 0), (1, 0)];
+const DIRECTIONS: [Point; 4] = [(0, 1), (0, -1), (-1, 0), (1, 0)];
 
-fn rot((x, y): (isize, isize), r: usize) -> (isize, isize) {
+fn rot((x, y): Point, r: usize) -> Point {
     if r >= 1 {
         rot((-y, x), r - 1)
     } else {
@@ -20,10 +22,7 @@ fn rot((x, y): (isize, isize), r: usize) -> (isize, isize) {
 }
 
 fn step(state: &State) -> Option<State> {
-    let (proposals, proposal_counts): (
-        HashMap<(isize, isize), (isize, isize)>,
-        HashMap<(isize, isize), usize>,
-    ) = state
+    let (proposals, proposal_counts): (HashMap<Point, Point>, HashMap<Point, usize>) = state
         .map
         .iter()
         .copied()
@@ -35,7 +34,7 @@ fn step(state: &State) -> Option<State> {
         })
         .fold(
             (HashMap::new(), HashMap::new()),
-            |(mut props, mut prop_counts), (x, y): (isize, isize)| {
+            |(mut props, mut prop_counts), (x, y): Point| {
                 if let Some((dx, dy)) = DIRECTIONS
                     .iter()
                     .cycle()
@@ -64,7 +63,7 @@ fn step(state: &State) -> Option<State> {
                 .iter()
                 .map(|orig| {
                     if let Some(prop) = proposals
-                        .get(&orig)
+                        .get(orig)
                         .filter(|prop| proposal_counts[prop] == 1)
                     {
                         *prop
@@ -106,7 +105,7 @@ fn solve_b(state: &State) -> usize {
 }
 
 pub fn solve(lines: &[String]) -> Solution {
-    let map: HashSet<(isize, isize)> = lines
+    let map: HashSet<Point> = lines
         .iter()
         .filter(|line| !line.is_empty())
         .enumerate()
