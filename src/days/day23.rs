@@ -34,7 +34,7 @@ fn step(state: &State) -> Option<State> {
                 .copied()
                 .find_map(|(dx, dy)| {
                     let (xx, yy) = (x + dx, y + dy);
-                    if (-1..=1).all(|k| !state.map.contains(&(xx - k * dy, yy - k * dx))) {
+                    if !(-1..=1).any(|k| state.map.contains(&(xx - k * dy, yy - k * dx))) {
                         Some(((x, y), (xx, yy)))
                     } else {
                         None
