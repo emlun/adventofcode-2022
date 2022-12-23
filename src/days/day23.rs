@@ -11,32 +11,6 @@ struct State {
 
 const DIRECTIONS: [(isize, isize); 4] = [(0, 1), (0, -1), (-1, 0), (1, 0)];
 
-fn print_state(state: &State) {
-    let (minx, maxx, miny, maxy) = state.map.iter().fold(
-        (isize::MAX, isize::MIN, isize::MAX, isize::MIN),
-        |(minx, maxx, miny, maxy), (x, y)| {
-            (
-                std::cmp::min(minx, *x),
-                std::cmp::max(maxx, *x),
-                std::cmp::min(miny, *y),
-                std::cmp::max(maxy, *y),
-            )
-        },
-    );
-
-    for y in (miny..=maxy).rev() {
-        for x in minx..=maxx {
-            if state.map.contains(&(x, y)) {
-                print!("#");
-            } else {
-                print!(".")
-            };
-        }
-        println!();
-    }
-    println!();
-}
-
 fn rot((x, y): (isize, isize), r: usize) -> (isize, isize) {
     if r >= 1 {
         rot((-y, x), r - 1)
@@ -62,7 +36,6 @@ fn step(state: &State) -> Option<State> {
         .fold(
             (HashMap::new(), HashMap::new()),
             |(mut props, mut prop_counts), (x, y): (isize, isize)| {
-                // dbg!((x, y));
                 if let Some((dx, dy)) = DIRECTIONS
                     .iter()
                     .cycle()
@@ -71,17 +44,10 @@ fn step(state: &State) -> Option<State> {
                     .copied()
                     .find(|(dx, dy)| {
                         let (ddx, ddy) = rot((*dx, *dy), 1);
-                        // dbg!((dx, dy), (ddx, ddy));
-                        (-1..=1).all(|k| {
-                            !state
-                                .map
-                                // .contains(&dbg!((x + dx - k * ddx, y + dy - k * ddy)))
-                                .contains(&(x + dx - k * ddx, y + dy - k * ddy))
-                        })
+                        (-1..=1).all(|k| !state.map.contains(&(x + dx - k * ddx, y + dy - k * ddy)))
                     })
                 {
                     let prop = (x + dx, y + dy);
-                    // dbg!(prop);
                     props.insert((x, y), prop);
                     prop_counts.entry(prop).and_modify(|m| *m += 1).or_insert(1);
                 }
