@@ -48,8 +48,7 @@ where
 {
     fn counts(self) -> HashMap<A, usize> {
         self.fold(HashMap::new(), |mut result, item| {
-            let count = result.remove(&item).unwrap_or(0) + 1;
-            result.insert(item, count);
+            result.entry(item).and_modify(|c| *c += 1).or_insert(1);
             result
         })
     }
