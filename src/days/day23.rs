@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use crate::common::Solution;
+use crate::util::iter::Countable;
 
 type Point = (isize, isize);
 
@@ -22,7 +23,7 @@ fn rot((x, y): Point, r: usize) -> Point {
 }
 
 fn step(state: &State) -> Option<State> {
-    let (proposals, proposal_counts): (HashMap<Point, Point>, HashMap<Point, usize>) = state
+    let proposals: HashMap<Point, Point> = state
         .map
         .iter()
         .copied()
@@ -32,31 +33,26 @@ fn step(state: &State) -> Option<State> {
                 .filter(|(dx, dy)| (*dx, *dy) != (0, 0))
                 .any(|(dx, dy)| state.map.contains(&(x + dx, y + dy)))
         })
-        .fold(
-            (HashMap::new(), HashMap::new()),
-            |(mut props, mut prop_counts), (x, y): Point| {
-                if let Some((dx, dy)) = DIRECTIONS
-                    .iter()
-                    .cycle()
-                    .skip(state.first_dir)
-                    .take(4)
-                    .copied()
-                    .find(|(dx, dy)| {
-                        let (ddx, ddy) = rot((*dx, *dy), 1);
-                        (-1..=1).all(|k| !state.map.contains(&(x + dx - k * ddx, y + dy - k * ddy)))
-                    })
-                {
-                    let prop = (x + dx, y + dy);
-                    props.insert((x, y), prop);
-                    prop_counts.entry(prop).and_modify(|m| *m += 1).or_insert(1);
-                }
-                (props, prop_counts)
-            },
-        );
+        .flat_map(|(x, y): Point| {
+            DIRECTIONS
+                .iter()
+                .cycle()
+                .skip(state.first_dir)
+                .take(4)
+                .copied()
+                .find(|(dx, dy)| {
+                    let (ddx, ddy) = rot((*dx, *dy), 1);
+                    (-1..=1).all(|k| !state.map.contains(&(x + dx - k * ddx, y + dy - k * ddy)))
+                })
+                .map(|(dx, dy)| ((x, y), (x + dx, y + dy)))
+        })
+        .collect();
 
     if proposals.is_empty() {
         None
     } else {
+        let proposal_counts = proposals.values().counts();
+
         Some(State {
             map: state
                 .map
