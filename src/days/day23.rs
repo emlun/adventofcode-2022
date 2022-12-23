@@ -45,7 +45,7 @@ fn rot((x, y): (isize, isize), r: usize) -> (isize, isize) {
     }
 }
 
-fn step(state: State) -> State {
+fn step(state: &State) -> Option<State> {
     let (proposals, proposal_counts): (
         HashMap<(isize, isize), (isize, isize)>,
         HashMap<(isize, isize), usize>,
@@ -89,37 +89,31 @@ fn step(state: State) -> State {
             },
         );
 
-    State {
-        map: state
-            .map
-            .into_iter()
-            .map(|orig| {
-                if let Some(prop) = proposals
-                    .get(&orig)
-                    .filter(|prop| proposal_counts[prop] == 1)
-                {
-                    *prop
-                } else {
-                    orig
-                }
-            })
-            .collect(),
-        first_dir: (state.first_dir + 1) % 4,
-    }
-}
-
-fn simulate(state: State, steps: usize) -> State {
-    // print_state(&state);
-    if steps >= 1 {
-        simulate(step(state), steps - 1)
+    if proposals.is_empty() {
+        None
     } else {
-        state
+        Some(State {
+            map: state
+                .map
+                .iter()
+                .map(|orig| {
+                    if let Some(prop) = proposals
+                        .get(&orig)
+                        .filter(|prop| proposal_counts[prop] == 1)
+                    {
+                        *prop
+                    } else {
+                        *orig
+                    }
+                })
+                .collect(),
+            first_dir: (state.first_dir + 1) % 4,
+        })
     }
 }
 
-fn solve_a(state: &State) -> usize {
-    let state_after = simulate(state.clone(), 10);
-    let (minx, maxx, miny, maxy) = state_after.map.iter().fold(
+fn measure_size(state: &State) -> usize {
+    let (minx, maxx, miny, maxy) = state.map.iter().fold(
         (isize::MAX, isize::MIN, isize::MAX, isize::MIN),
         |(minx, maxx, miny, maxy), (x, y)| {
             (
@@ -130,7 +124,19 @@ fn solve_a(state: &State) -> usize {
             )
         },
     );
-    ((maxx + 1 - minx) * (maxy + 1 - miny)) as usize - state_after.map.len()
+    ((maxx + 1 - minx) * (maxy + 1 - miny)) as usize - state.map.len()
+}
+
+fn solve_a(state: &State) -> usize {
+    measure_size(
+        &std::iter::successors(Some(state.clone()), step)
+            .nth(10)
+            .unwrap(),
+    )
+}
+
+fn solve_b(state: &State) -> usize {
+    std::iter::successors(Some(state.clone()), step).count()
 }
 
 pub fn solve(lines: &[String]) -> Solution {
@@ -147,5 +153,5 @@ pub fn solve(lines: &[String]) -> Solution {
         .collect();
     let state = State { map, first_dir: 0 };
 
-    (solve_a(&state).to_string(), "".to_string())
+    (solve_a(&state).to_string(), solve_b(&state).to_string())
 }
