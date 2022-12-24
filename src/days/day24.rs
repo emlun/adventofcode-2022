@@ -59,13 +59,21 @@ struct State<'a> {
     game: &'a Game,
     t: usize,
     pos: Point,
+    trips_left: usize,
 }
 
 impl<'a> State<'a> {
     fn estimate(&self) -> usize {
         let (r, c) = self.pos;
         let (gr, gc) = self.game.goal;
-        self.t + r.abs_diff(gr) + c.abs_diff(gc)
+        let (sr, sc) = self.game.goal;
+        let trip_len = sr.abs_diff(gr) + sc.abs_diff(gc);
+
+        if self.trips_left % 2 == 1 {
+            self.t + r.abs_diff(gr) + c.abs_diff(gc) + self.trips_left * trip_len
+        } else {
+            self.t + r.abs_diff(sr) + c.abs_diff(sc) + self.trips_left * trip_len
+        }
     }
 
     fn has_blizzard(&self, (r, c): Point) -> bool {
@@ -162,10 +170,18 @@ fn generate_moves<'b>(state: State<'b>) -> impl Iterator<Item = State<'b>> + 'b 
     .flat_map(move |rrcc| {
         if let (Some(rr), Some(cc)) = rrcc {
             // dbg!((rr, cc));
+            let pos = (rr, cc);
             Some(State {
                 game: state.game,
                 t: state.t + 1,
-                pos: (rr, cc),
+                pos,
+                trips_left: if (state.trips_left % 2 == 1 && pos == state.game.goal)
+                    || (state.trips_left % 2 == 0 && pos == state.game.start)
+                {
+                    state.trips_left - 1
+                } else {
+                    state.trips_left
+                },
             })
             .filter(|st| {
                 st.pos == st.game.start
@@ -185,14 +201,15 @@ fn generate_moves<'b>(state: State<'b>) -> impl Iterator<Item = State<'b>> + 'b 
     })
 }
 
-fn astar(game: &Game) -> usize {
+fn astar(game: &Game, trips_left: usize) -> usize {
     let mut queue: BinaryHeap<Reverse<State>> = BinaryHeap::new();
-    let mut visited: HashMap<(usize, usize), HashMap<Point, usize>> = HashMap::new();
+    let mut visited: HashMap<(usize, usize, usize), HashMap<Point, usize>> = HashMap::new();
 
     let init_state = State {
         game,
         t: 0,
         pos: game.start,
+        trips_left,
     };
     queue.push(Reverse(init_state));
 
@@ -206,12 +223,13 @@ fn astar(game: &Game) -> usize {
         // );
         // print_state(&state);
 
-        if state.pos == game.goal {
+        if state.trips_left == 0 {
             return state.t;
         } else if visited
             .get(&(
                 state.t % (state.game.maxxr - state.game.minir),
                 state.t % (state.game.maxxc - state.game.minic),
+                state.trips_left,
             ))
             .and_then(|v| v.get(&state.pos))
             .map(|t| *t >= state.t)
@@ -222,6 +240,7 @@ fn astar(game: &Game) -> usize {
                     .get(&(
                         next_state.t % (next_state.game.maxxr - next_state.game.minir),
                         next_state.t % (next_state.game.maxxc - next_state.game.minic),
+                        next_state.trips_left,
                     ))
                     .and_then(|v| v.get(&next_state.pos))
                     .map(|t| *t > next_state.t)
@@ -231,6 +250,7 @@ fn astar(game: &Game) -> usize {
                         .entry((
                             next_state.t % (next_state.game.maxxr - next_state.game.minir),
                             next_state.t % (next_state.game.maxxc - next_state.game.minic),
+                            next_state.trips_left,
                         ))
                         .or_default()
                         .entry(next_state.pos)
@@ -246,7 +266,11 @@ fn astar(game: &Game) -> usize {
 }
 
 fn solve_a(game: &Game) -> usize {
-    astar(game)
+    astar(game, 1)
+}
+
+fn solve_b(game: &Game) -> usize {
+    astar(game, 3)
 }
 
 pub fn solve(lines: &[String]) -> Solution {
@@ -305,5 +329,5 @@ pub fn solve(lines: &[String]) -> Solution {
     game.minic = 1;
     game.minir = 1;
 
-    (solve_a(&game).to_string(), "".to_string())
+    (solve_a(&game).to_string(), solve_b(&game).to_string())
 }
