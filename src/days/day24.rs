@@ -6,40 +6,6 @@ use crate::common::Solution;
 
 type Point = (usize, usize);
 
-fn print_state(state: &State) {
-    for r in 0..=state.game.maxxr {
-        for c in 0..=state.game.maxxc {
-            if state.pos == (r, c) {
-                print!("E");
-            } else if (r, c) == (0, 1) || (r, c) == (state.game.maxxr, state.game.maxxc - 1) {
-                print!(".");
-            } else if r == 0 || r == state.game.maxxr || c == 0 || c == state.game.maxxc {
-                print!("#");
-            } else {
-                let (u, d, l, r) = state.get_blizzard((r, c));
-                let n = u8::from(u) + u8::from(d) + u8::from(l) + u8::from(r);
-                if n > 1 {
-                    print!("{}", n);
-                } else if n == 1 {
-                    if u {
-                        print!("^");
-                    } else if d {
-                        print!("v");
-                    } else if l {
-                        print!("<");
-                    } else if r {
-                        print!(">");
-                    }
-                } else {
-                    print!(".");
-                }
-            }
-        }
-        println!();
-    }
-    println!();
-}
-
 #[derive(Default, Eq, PartialEq)]
 struct Game {
     start: Point,
@@ -109,39 +75,6 @@ impl<'a> State<'a> {
                 .nth(c - self.game.minic)
                 .unwrap()[r - self.game.minir]
     }
-
-    fn get_blizzard(&self, (r, c): Point) -> (bool, bool, bool, bool) {
-        (
-            self.game
-                .blizzards_up
-                .iter()
-                .cycle()
-                .skip(self.t)
-                .nth(r - self.game.minir)
-                .unwrap()[c - self.game.minic],
-            self.game
-                .blizzards_down
-                .iter()
-                .cycle()
-                .skip((self.game.maxxr - self.game.minir - 1) * self.t)
-                .nth(r - self.game.minir)
-                .unwrap()[c - self.game.minic],
-            self.game
-                .blizzards_left
-                .iter()
-                .cycle()
-                .skip(self.t)
-                .nth(c - self.game.minic)
-                .unwrap()[r - self.game.minir],
-            self.game
-                .blizzards_right
-                .iter()
-                .cycle()
-                .skip((self.game.maxxc - self.game.minic - 1) * self.t)
-                .nth(c - self.game.minic)
-                .unwrap()[r - self.game.minir],
-        )
-    }
 }
 
 impl<'a> PartialOrd for State<'a> {
@@ -158,7 +91,6 @@ impl<'a> Ord for State<'a> {
 
 fn generate_moves<'b>(state: State<'b>) -> impl Iterator<Item = State<'b>> + 'b {
     let (r, c) = state.pos;
-    // dbg!((r, c));
     [
         (Some(r), Some(c)),
         (r.checked_sub(1), Some(c)),
@@ -169,7 +101,6 @@ fn generate_moves<'b>(state: State<'b>) -> impl Iterator<Item = State<'b>> + 'b 
     .into_iter()
     .flat_map(move |rrcc| {
         if let (Some(rr), Some(cc)) = rrcc {
-            // dbg!((rr, cc));
             let pos = (rr, cc);
             Some(State {
                 game: state.game,
@@ -194,7 +125,6 @@ fn generate_moves<'b>(state: State<'b>) -> impl Iterator<Item = State<'b>> + 'b 
         }
     })
     .filter(|state| {
-        // dbg!(state.pos);
         state.pos == state.game.start
             || state.pos == state.game.goal
             || !state.has_blizzard(state.pos)
@@ -214,15 +144,6 @@ fn astar(game: &Game, trips_left: usize) -> usize {
     queue.push(Reverse(init_state));
 
     while let Some(Reverse(state)) = queue.pop() {
-        // println!(
-        //     "l={} \tt={} \t{:?} \te={}",
-        //     queue.len(),
-        //     state.t,
-        //     state.pos,
-        //     state.estimate()
-        // );
-        // print_state(&state);
-
         if state.trips_left == 0 {
             return state.t;
         } else if visited
