@@ -89,7 +89,7 @@ impl<'a> Ord for State<'a> {
     }
 }
 
-fn generate_moves<'b>(state: State<'b>) -> impl Iterator<Item = State<'b>> + 'b {
+fn generate_moves(state: State) -> impl Iterator<Item = State> {
     let (r, c) = state.pos;
     [
         (Some(r), Some(c)),
