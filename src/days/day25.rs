@@ -17,26 +17,22 @@ fn to_snafu(mut d: i64) -> String {
     while d > 0 {
         snafu.resize(i + 2, 0);
         match d % 5 {
-            4 => {
-                snafu[i] -= 1;
+            a @ 3 | a @ 4 => {
+                snafu[i] -= 5 - a;
                 snafu[i + 1] += 1;
             }
-            3 => {
-                snafu[i] -= 2;
-                snafu[i + 1] += 1;
-            }
-            2 => snafu[i] += 2,
-            1 => snafu[i] += 1,
-            0 => snafu[i] += 0,
-            _ => unimplemented!(),
+            other => snafu[i] += other,
         }
+
         if snafu[i] > 2 {
             snafu[i] -= 5;
             snafu[i + 1] += 1;
         }
+
         d /= 5;
         i += 1;
     }
+
     snafu
         .into_iter()
         .rev()
@@ -47,7 +43,7 @@ fn to_snafu(mut d: i64) -> String {
             0 => '0',
             -1 => '-',
             -2 => '=',
-            _ => unimplemented!("{}", d),
+            _ => unimplemented!(),
         })
         .collect()
 }
