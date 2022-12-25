@@ -110,14 +110,16 @@ impl<'a> astar::State for State<'a> {
     fn estimate(&self) -> usize {
         let (r, c) = self.pos;
         let (gr, gc) = self.game.goal;
-        let (sr, sc) = self.game.goal;
+        let (sr, sc) = self.game.start;
         let trip_len = sr.abs_diff(gr) + sc.abs_diff(gc);
 
-        if self.trips_left % 2 == 1 {
-            self.t + r.abs_diff(gr) + c.abs_diff(gc) + self.trips_left * trip_len
-        } else {
-            self.t + r.abs_diff(sr) + c.abs_diff(sc) + self.trips_left * trip_len
-        }
+        self.t
+            + (self.trips_left - 1) * trip_len
+            + if self.trips_left % 2 == 1 {
+                r.abs_diff(gr) + c.abs_diff(gc)
+            } else {
+                r.abs_diff(sr) + c.abs_diff(sc)
+            }
     }
 
     fn generate_moves(self) -> Self::NewStates {
