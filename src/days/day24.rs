@@ -29,6 +29,30 @@ struct State<'a> {
 }
 
 impl<'a> State<'a> {
+    fn new(game: &'a Game, trips_left: usize) -> Self {
+        Self {
+            game,
+            t: 0,
+            pos: game.start,
+            trips_left,
+        }
+    }
+
+    fn move_to(&self, pos: Point) -> Self {
+        State {
+            game: self.game,
+            t: self.t + 1,
+            pos,
+            trips_left: if (self.trips_left % 2 == 1 && pos == self.game.goal)
+                || (self.trips_left % 2 == 0 && pos == self.game.start)
+            {
+                self.trips_left - 1
+            } else {
+                self.trips_left
+            },
+        }
+    }
+
     fn estimate(&self) -> usize {
         let (r, c) = self.pos;
         let (gr, gc) = self.game.goal;
@@ -102,19 +126,7 @@ fn generate_moves(state: State) -> impl Iterator<Item = State> {
     .flat_map(move |rrcc| {
         if let (Some(rr), Some(cc)) = rrcc {
             let pos = (rr, cc);
-            Some(State {
-                game: state.game,
-                t: state.t + 1,
-                pos,
-                trips_left: if (state.trips_left % 2 == 1 && pos == state.game.goal)
-                    || (state.trips_left % 2 == 0 && pos == state.game.start)
-                {
-                    state.trips_left - 1
-                } else {
-                    state.trips_left
-                },
-            })
-            .filter(|st| {
+            Some(state.move_to(pos)).filter(|st| {
                 st.pos == st.game.start
                     || st.pos == st.game.goal
                     || (st.game.minir..st.game.maxxr).contains(&rr)
@@ -135,12 +147,7 @@ fn astar(game: &Game, trips_left: usize) -> usize {
     let mut queue: BinaryHeap<Reverse<State>> = BinaryHeap::new();
     let mut visited: HashMap<(usize, usize, usize), HashMap<Point, usize>> = HashMap::new();
 
-    let init_state = State {
-        game,
-        t: 0,
-        pos: game.start,
-        trips_left,
-    };
+    let init_state = State::new(game, trips_left);
     queue.push(Reverse(init_state));
 
     while let Some(Reverse(state)) = queue.pop() {
