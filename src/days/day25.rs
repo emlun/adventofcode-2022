@@ -4,7 +4,7 @@ fn from_snafu(s: &str) -> i64 {
     s.chars().fold(0, |d, c| match c {
         '2' => d * 5 + 2,
         '1' => d * 5 + 1,
-        '0' => d * 5 + 0,
+        '0' => d * 5,
         '-' => d * 5 - 1,
         '=' => d * 5 - 2,
         _ => unimplemented!(),
@@ -50,7 +50,7 @@ fn to_snafu(mut d: i64) -> String {
 
 pub fn solve(lines: &[String]) -> Solution {
     (
-        to_snafu(lines.iter().map(|s| from_snafu(s)).sum()).to_string(),
+        to_snafu(lines.iter().map(|s| from_snafu(s)).sum()),
         "".to_string(),
     )
 }
