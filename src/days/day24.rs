@@ -1,8 +1,5 @@
-use std::cmp::Reverse;
-use std::collections::BinaryHeap;
-use std::collections::HashMap;
-
 use crate::common::Solution;
+use crate::search::astar;
 
 type Point = (usize, usize);
 
@@ -21,15 +18,15 @@ struct Game {
 }
 
 #[derive(Eq, PartialEq)]
-struct State<'a> {
-    game: &'a Game,
+struct State<'game> {
+    game: &'game Game,
     t: usize,
     pos: Point,
     trips_left: usize,
 }
 
-impl<'a> State<'a> {
-    fn new(game: &'a Game, trips_left: usize) -> Self {
+impl<'game> State<'game> {
+    fn new(game: &'game Game, trips_left: usize) -> Self {
         Self {
             game,
             t: 0,
@@ -50,19 +47,6 @@ impl<'a> State<'a> {
             } else {
                 self.trips_left
             },
-        }
-    }
-
-    fn estimate(&self) -> usize {
-        let (r, c) = self.pos;
-        let (gr, gc) = self.game.goal;
-        let (sr, sc) = self.game.goal;
-        let trip_len = sr.abs_diff(gr) + sc.abs_diff(gc);
-
-        if self.trips_left % 2 == 1 {
-            self.t + r.abs_diff(gr) + c.abs_diff(gc) + self.trips_left * trip_len
-        } else {
-            self.t + r.abs_diff(sr) + c.abs_diff(sc) + self.trips_left * trip_len
         }
     }
 
@@ -101,104 +85,80 @@ impl<'a> State<'a> {
     }
 }
 
-impl<'a> PartialOrd for State<'a> {
-    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(rhs))
-    }
-}
+impl<'a> astar::State for State<'a> {
+    type DuplicationKey = (usize, usize, usize, Point);
+    type Value = usize;
+    type NewStates = Box<dyn Iterator<Item = Self> + 'a>;
 
-impl<'a> Ord for State<'a> {
-    fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
-        self.estimate().cmp(&rhs.estimate())
+    fn finished(&self) -> bool {
+        self.trips_left == 0
     }
-}
 
-fn generate_moves(state: State) -> impl Iterator<Item = State> {
-    let (r, c) = state.pos;
-    [
-        (Some(r), Some(c)),
-        (r.checked_sub(1), Some(c)),
-        (Some(r), Some(c + 1)),
-        (Some(r + 1), Some(c)),
-        (Some(r), c.checked_sub(1)),
-    ]
-    .into_iter()
-    .flat_map(move |rrcc| {
-        if let (Some(rr), Some(cc)) = rrcc {
-            let pos = (rr, cc);
-            Some(state.move_to(pos)).filter(|st| {
-                st.pos == st.game.start
-                    || st.pos == st.game.goal
-                    || (st.game.minir..st.game.maxxr).contains(&rr)
-                        && (st.game.minic..st.game.maxxc).contains(&cc)
-            })
+    fn duplication_key(&self) -> Self::DuplicationKey {
+        (
+            self.t % (self.game.maxxr - self.game.minir),
+            self.t % (self.game.maxxc - self.game.minic),
+            self.trips_left,
+            self.pos,
+        )
+    }
+
+    fn value(&self) -> Self::Value {
+        self.t
+    }
+
+    fn estimate(&self) -> usize {
+        let (r, c) = self.pos;
+        let (gr, gc) = self.game.goal;
+        let (sr, sc) = self.game.goal;
+        let trip_len = sr.abs_diff(gr) + sc.abs_diff(gc);
+
+        if self.trips_left % 2 == 1 {
+            self.t + r.abs_diff(gr) + c.abs_diff(gc) + self.trips_left * trip_len
         } else {
-            None
-        }
-    })
-    .filter(|state| {
-        state.pos == state.game.start
-            || state.pos == state.game.goal
-            || !state.has_blizzard(state.pos)
-    })
-}
-
-fn astar(game: &Game, trips_left: usize) -> usize {
-    let mut queue: BinaryHeap<Reverse<State>> = BinaryHeap::new();
-    let mut visited: HashMap<(usize, usize, usize), HashMap<Point, usize>> = HashMap::new();
-
-    let init_state = State::new(game, trips_left);
-    queue.push(Reverse(init_state));
-
-    while let Some(Reverse(state)) = queue.pop() {
-        if state.trips_left == 0 {
-            return state.t;
-        } else if visited
-            .get(&(
-                state.t % (state.game.maxxr - state.game.minir),
-                state.t % (state.game.maxxc - state.game.minic),
-                state.trips_left,
-            ))
-            .and_then(|v| v.get(&state.pos))
-            .map(|t| *t >= state.t)
-            .unwrap_or(true)
-        {
-            for next_state in generate_moves(state) {
-                if visited
-                    .get(&(
-                        next_state.t % (next_state.game.maxxr - next_state.game.minir),
-                        next_state.t % (next_state.game.maxxc - next_state.game.minic),
-                        next_state.trips_left,
-                    ))
-                    .and_then(|v| v.get(&next_state.pos))
-                    .map(|t| *t > next_state.t)
-                    .unwrap_or(true)
-                {
-                    visited
-                        .entry((
-                            next_state.t % (next_state.game.maxxr - next_state.game.minir),
-                            next_state.t % (next_state.game.maxxc - next_state.game.minic),
-                            next_state.trips_left,
-                        ))
-                        .or_default()
-                        .entry(next_state.pos)
-                        .and_modify(|t| *t = next_state.t)
-                        .or_insert(next_state.t);
-                    queue.push(Reverse(next_state));
-                }
-            }
+            self.t + r.abs_diff(sr) + c.abs_diff(sc) + self.trips_left * trip_len
         }
     }
 
-    unimplemented!()
+    fn generate_moves(self) -> Self::NewStates {
+        let (r, c) = self.pos;
+        Box::new(
+            [
+                (Some(r), Some(c)),
+                (r.checked_sub(1), Some(c)),
+                (Some(r), Some(c + 1)),
+                (Some(r + 1), Some(c)),
+                (Some(r), c.checked_sub(1)),
+            ]
+            .into_iter()
+            .flat_map(move |rrcc| {
+                if let (Some(rr), Some(cc)) = rrcc {
+                    let pos = (rr, cc);
+                    Some(self.move_to(pos)).filter(|st| {
+                        st.pos == st.game.start
+                            || st.pos == st.game.goal
+                            || (st.game.minir..st.game.maxxr).contains(&rr)
+                                && (st.game.minic..st.game.maxxc).contains(&cc)
+                    })
+                } else {
+                    None
+                }
+            })
+            .filter(|state| {
+                state.pos == state.game.start
+                    || state.pos == state.game.goal
+                    || !state.has_blizzard(state.pos)
+            }),
+        )
+    }
 }
 
 fn solve_a(game: &Game) -> usize {
-    astar(game, 1)
+    astar::astar(State::new(game, 1)).unwrap().t
 }
 
 fn solve_b(game: &Game) -> usize {
-    astar(game, 3)
+    astar::astar(State::new(game, 3)).unwrap().t
 }
 
 pub fn solve(lines: &[String]) -> Solution {
