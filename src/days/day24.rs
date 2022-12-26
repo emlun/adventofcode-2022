@@ -1,16 +1,16 @@
 use crate::common::Solution;
 use crate::search::astar;
 
-type Point = (usize, usize);
+type Point = (u8, u8);
 
 #[derive(Default, Eq, PartialEq)]
 struct Game {
     start: Point,
     goal: Point,
-    minic: usize,
-    maxxc: usize,
-    minir: usize,
-    maxxr: usize,
+    minic: u8,
+    maxxc: u8,
+    minir: u8,
+    maxxr: u8,
     blizzards_up: Vec<u128>,
     blizzards_right: Vec<u128>,
     blizzards_down: Vec<u128>,
@@ -23,11 +23,11 @@ struct State<'game> {
     game: &'game Game,
     t: usize,
     pos: Point,
-    trips_left: usize,
+    trips_left: u8,
 }
 
 impl<'game> State<'game> {
-    fn new(game: &'game Game, trips_left: usize) -> Self {
+    fn new(game: &'game Game, trips_left: u8) -> Self {
         Self {
             game,
             t: 0,
@@ -58,7 +58,7 @@ impl<'game> State<'game> {
             .iter()
             .cycle()
             .skip(self.t)
-            .nth(r - self.game.minir)
+            .nth((r - self.game.minir).into())
             .unwrap()
             & (1 << c)
             != 0)
@@ -67,8 +67,8 @@ impl<'game> State<'game> {
                 .blizzards_down
                 .iter()
                 .cycle()
-                .skip((self.game.maxxr - self.game.minir - 1) * self.t)
-                .nth(r - self.game.minir)
+                .skip(usize::from(self.game.maxxr - self.game.minir - 1) * self.t)
+                .nth((r - self.game.minir).into())
                 .unwrap()
                 & (1 << c)
                 != 0)
@@ -78,7 +78,7 @@ impl<'game> State<'game> {
                 .iter()
                 .cycle()
                 .skip(self.t)
-                .nth(c - self.game.minic)
+                .nth((c - self.game.minic).into())
                 .unwrap()
                 & (1 << r)
                 != 0)
@@ -87,8 +87,8 @@ impl<'game> State<'game> {
                 .blizzards_right
                 .iter()
                 .cycle()
-                .skip((self.game.maxxc - self.game.minic - 1) * self.t)
-                .nth(c - self.game.minic)
+                .skip(usize::from(self.game.maxxc - self.game.minic - 1) * self.t)
+                .nth((c - self.game.minic).into())
                 .unwrap()
                 & (1 << r)
                 != 0)
@@ -96,12 +96,15 @@ impl<'game> State<'game> {
 }
 
 impl<'a> astar::State for State<'a> {
-    type DuplicationKey = (usize, usize, Point);
+    type DuplicationKey = usize;
     type Value = usize;
     type NewStates = Box<dyn Iterator<Item = Self> + 'a>;
 
     fn duplication_key(&self) -> Self::DuplicationKey {
-        (self.t % self.game.period, self.trips_left, self.pos)
+        (self.t << (3 * u8::BITS))
+            | (self.game.period << (2 * u8::BITS))
+            | (usize::from(self.pos.0) << u8::BITS)
+            | usize::from(self.pos.1)
     }
 
     fn value(&self) -> Self::Value {
@@ -115,12 +118,12 @@ impl<'a> astar::State for State<'a> {
         let trip_len = sr.abs_diff(gr) + sc.abs_diff(gc);
 
         self.t
-            + self.trips_left * trip_len
-            + if self.trips_left % 2 == 0 {
+            + usize::from(self.trips_left) * usize::from(trip_len)
+            + usize::from(if self.trips_left % 2 == 0 {
                 r.abs_diff(gr) + c.abs_diff(gc)
             } else {
                 r.abs_diff(sr) + c.abs_diff(sc)
-            }
+            })
     }
 
     fn generate_moves(self) -> Self::NewStates {
@@ -178,13 +181,15 @@ fn solve_b(game: &Game) -> usize {
 }
 
 pub fn solve(lines: &[String]) -> Solution {
-    let h = lines.iter().filter(|line| !line.is_empty()).count();
+    let h: u8 = u8::try_from(lines.iter().filter(|line| !line.is_empty()).count()).unwrap();
     let mut game: Game = lines
         .iter()
         .filter(|line| !line.is_empty())
         .enumerate()
         .fold(Game::default(), |game, (r, line)| {
             line.chars().enumerate().fold(game, |mut game, (c, chr)| {
+                let (r, c) = (u8::try_from(r).unwrap(), u8::try_from(c).unwrap());
+
                 if chr == '#' {
                     game.maxxc = std::cmp::max(game.maxxc, c);
                     game.maxxr = std::cmp::max(game.maxxr, r);
@@ -204,8 +209,8 @@ pub fn solve(lines: &[String]) -> Solution {
                     }
                 } else {
                     if chr != '#' {
-                        let inner_h = std::cmp::max(game.blizzards_down.len(), r);
-                        let inner_w = std::cmp::max(game.blizzards_right.len(), c);
+                        let inner_h = std::cmp::max(game.blizzards_down.len(), r.into());
+                        let inner_w = std::cmp::max(game.blizzards_right.len(), c.into());
 
                         game.blizzards_right.resize(inner_w, 0);
                         game.blizzards_left.resize(inner_w, 0);
@@ -214,10 +219,10 @@ pub fn solve(lines: &[String]) -> Solution {
                     }
 
                     match chr {
-                        '>' => game.blizzards_right[c - 1] |= 1 << r,
-                        '<' => game.blizzards_left[c - 1] |= 1 << r,
-                        '^' => game.blizzards_up[r - 1] |= 1 << c,
-                        'v' => game.blizzards_down[r - 1] |= 1 << c,
+                        '>' => game.blizzards_right[usize::from(c - 1)] |= 1 << r,
+                        '<' => game.blizzards_left[usize::from(c - 1)] |= 1 << r,
+                        '^' => game.blizzards_up[usize::from(r - 1)] |= 1 << c,
+                        'v' => game.blizzards_down[usize::from(r - 1)] |= 1 << c,
                         _ => assert!(chr == '#' || chr == '.'),
                     }
                 }
@@ -227,7 +232,10 @@ pub fn solve(lines: &[String]) -> Solution {
         });
     game.minic = 1;
     game.minir = 1;
-    game.period = lcm(game.maxxr - game.minir, game.maxxc - game.minic);
+    game.period = lcm(
+        usize::from(game.maxxr - game.minir),
+        usize::from(game.maxxc - game.minic),
+    );
 
     (solve_a(&game).to_string(), solve_b(&game).to_string())
 }
