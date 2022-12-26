@@ -15,7 +15,10 @@ where
     fn estimate(&self) -> Self::Value;
     fn duplication_key(&self) -> Self::DuplicationKey;
     fn generate_moves(self) -> Self::NewStates;
-    fn finished(&self) -> bool;
+
+    fn finished(&self) -> bool {
+        self.estimate() == self.value()
+    }
 }
 
 #[derive(Eq, PartialEq)]

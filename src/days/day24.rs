@@ -40,10 +40,10 @@ impl<'game> State<'game> {
             game: self.game,
             t: self.t + 1,
             pos,
-            trips_left: if (self.trips_left % 2 == 1 && pos == self.game.goal)
-                || (self.trips_left % 2 == 0 && pos == self.game.start)
+            trips_left: if (self.trips_left % 2 == 0 && pos == self.game.goal)
+                || (self.trips_left % 2 == 1 && pos == self.game.start)
             {
-                self.trips_left - 1
+                self.trips_left.saturating_sub(1)
             } else {
                 self.trips_left
             },
@@ -90,10 +90,6 @@ impl<'a> astar::State for State<'a> {
     type Value = usize;
     type NewStates = Box<dyn Iterator<Item = Self> + 'a>;
 
-    fn finished(&self) -> bool {
-        self.trips_left == 0
-    }
-
     fn duplication_key(&self) -> Self::DuplicationKey {
         (
             self.t % (self.game.maxxr - self.game.minir),
@@ -114,8 +110,8 @@ impl<'a> astar::State for State<'a> {
         let trip_len = sr.abs_diff(gr) + sc.abs_diff(gc);
 
         self.t
-            + (self.trips_left - 1) * trip_len
-            + if self.trips_left % 2 == 1 {
+            + self.trips_left * trip_len
+            + if self.trips_left % 2 == 0 {
                 r.abs_diff(gr) + c.abs_diff(gc)
             } else {
                 r.abs_diff(sr) + c.abs_diff(sc)
@@ -156,11 +152,11 @@ impl<'a> astar::State for State<'a> {
 }
 
 fn solve_a(game: &Game) -> usize {
-    astar::astar(State::new(game, 1)).unwrap().t
+    astar::astar(State::new(game, 0)).unwrap().t
 }
 
 fn solve_b(game: &Game) -> usize {
-    astar::astar(State::new(game, 3)).unwrap().t
+    astar::astar(State::new(game, 2)).unwrap().t
 }
 
 pub fn solve(lines: &[String]) -> Solution {
