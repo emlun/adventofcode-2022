@@ -11,6 +11,8 @@ struct Game {
     maxxc: u8,
     minir: u8,
     maxxr: u8,
+    inner_w: usize,
+    inner_h: usize,
     blizzards_up: Vec<u128>,
     blizzards_right: Vec<u128>,
     blizzards_down: Vec<u128>,
@@ -52,46 +54,15 @@ impl<'game> State<'game> {
     }
 
     fn has_blizzard(&self, (r, c): Point) -> bool {
-        (self
-            .game
-            .blizzards_up
-            .iter()
-            .cycle()
-            .skip(self.t)
-            .nth((r - self.game.minir).into())
-            .unwrap()
-            & (1 << c)
-            != 0)
-            || (self
-                .game
-                .blizzards_down
-                .iter()
-                .cycle()
-                .skip(usize::from(self.game.maxxr - self.game.minir - 1) * self.t)
-                .nth((r - self.game.minir).into())
-                .unwrap()
-                & (1 << c)
-                != 0)
-            || (self
-                .game
-                .blizzards_left
-                .iter()
-                .cycle()
-                .skip(self.t)
-                .nth((c - self.game.minic).into())
-                .unwrap()
-                & (1 << r)
-                != 0)
-            || (self
-                .game
-                .blizzards_right
-                .iter()
-                .cycle()
-                .skip(usize::from(self.game.maxxc - self.game.minic - 1) * self.t)
-                .nth((c - self.game.minic).into())
-                .unwrap()
-                & (1 << r)
-                != 0)
+        let ri = usize::from(r - self.game.minir);
+        let ci = usize::from(c - self.game.minic);
+        let hsub = self.game.inner_h - 1;
+        let wsub = self.game.inner_w - 1;
+
+        (self.game.blizzards_up[(self.t + ri) % self.game.inner_h] & (1 << c) != 0)
+            || (self.game.blizzards_down[(hsub * self.t + ri) % self.game.inner_h] & (1 << c) != 0)
+            || (self.game.blizzards_left[(self.t + ci) % self.game.inner_w] & (1 << r) != 0)
+            || (self.game.blizzards_right[(wsub * self.t + ci) % self.game.inner_w] & (1 << r) != 0)
     }
 }
 
@@ -232,6 +203,8 @@ pub fn solve(lines: &[String]) -> Solution {
         });
     game.minic = 1;
     game.minir = 1;
+    game.inner_h = game.blizzards_down.len();
+    game.inner_w = game.blizzards_right.len();
     game.period = lcm(
         usize::from(game.maxxr - game.minir),
         usize::from(game.maxxc - game.minic),
