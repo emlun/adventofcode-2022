@@ -15,6 +15,7 @@ struct Game {
     blizzards_right: Vec<Vec<bool>>,
     blizzards_down: Vec<Vec<bool>>,
     blizzards_left: Vec<Vec<bool>>,
+    period: usize,
 }
 
 #[derive(Eq, PartialEq)]
@@ -86,17 +87,12 @@ impl<'game> State<'game> {
 }
 
 impl<'a> astar::State for State<'a> {
-    type DuplicationKey = (usize, usize, usize, Point);
+    type DuplicationKey = (usize, usize, Point);
     type Value = usize;
     type NewStates = Box<dyn Iterator<Item = Self> + 'a>;
 
     fn duplication_key(&self) -> Self::DuplicationKey {
-        (
-            self.t % (self.game.maxxr - self.game.minir),
-            self.t % (self.game.maxxc - self.game.minic),
-            self.trips_left,
-            self.pos,
-        )
+        (self.t % self.game.period, self.trips_left, self.pos)
     }
 
     fn value(&self) -> Self::Value {
@@ -149,6 +145,19 @@ impl<'a> astar::State for State<'a> {
             }),
         )
     }
+}
+
+const fn gcd(a: usize, b: usize) -> usize {
+    if b == 0 {
+        a
+    } else {
+        gcd(b, a % b)
+    }
+}
+
+const fn lcm(a: usize, b: usize) -> usize {
+    let gcdab = gcd(a, b);
+    (a / gcdab) * b
 }
 
 fn solve_a(game: &Game) -> usize {
@@ -214,6 +223,7 @@ pub fn solve(lines: &[String]) -> Solution {
         });
     game.minic = 1;
     game.minir = 1;
+    game.period = lcm(game.maxxr - game.minir, game.maxxc - game.minic);
 
     (solve_a(&game).to_string(), solve_b(&game).to_string())
 }
