@@ -101,15 +101,15 @@ impl<'a> astar::State for State<'a> {
         let (r, c) = self.pos;
         Box::new(
             [
-                (Some(r), Some(c)),
-                (r.checked_sub(1), Some(c)),
-                (Some(r), Some(c + 1)),
-                (Some(r + 1), Some(c)),
-                (Some(r), c.checked_sub(1)),
+                Some((r, c)),
+                r.checked_sub(1).map(|r| (r, c)),
+                Some((r, c + 1)),
+                Some((r + 1, c)),
+                c.checked_sub(1).map(|c| (r, c)),
             ]
             .into_iter()
             .flat_map(move |rrcc| {
-                if let (Some(rr), Some(cc)) = rrcc {
+                if let Some((rr, cc)) = rrcc {
                     let pos = (rr, cc);
                     Some(self.move_to(pos)).filter(|st| {
                         st.pos == st.game.start
