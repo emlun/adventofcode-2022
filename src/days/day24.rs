@@ -11,10 +11,10 @@ struct Game {
     maxxc: usize,
     minir: usize,
     maxxr: usize,
-    blizzards_up: Vec<Vec<bool>>,
-    blizzards_right: Vec<Vec<bool>>,
-    blizzards_down: Vec<Vec<bool>>,
-    blizzards_left: Vec<Vec<bool>>,
+    blizzards_up: Vec<u128>,
+    blizzards_right: Vec<u128>,
+    blizzards_down: Vec<u128>,
+    blizzards_left: Vec<u128>,
     period: usize,
 }
 
@@ -52,37 +52,46 @@ impl<'game> State<'game> {
     }
 
     fn has_blizzard(&self, (r, c): Point) -> bool {
-        self.game
+        (self
+            .game
             .blizzards_up
             .iter()
             .cycle()
             .skip(self.t)
             .nth(r - self.game.minir)
-            .unwrap()[c - self.game.minic]
-            || self
+            .unwrap()
+            & (1 << c)
+            != 0)
+            || (self
                 .game
                 .blizzards_down
                 .iter()
                 .cycle()
                 .skip((self.game.maxxr - self.game.minir - 1) * self.t)
                 .nth(r - self.game.minir)
-                .unwrap()[c - self.game.minic]
-            || self
+                .unwrap()
+                & (1 << c)
+                != 0)
+            || (self
                 .game
                 .blizzards_left
                 .iter()
                 .cycle()
                 .skip(self.t)
                 .nth(c - self.game.minic)
-                .unwrap()[r - self.game.minir]
-            || self
+                .unwrap()
+                & (1 << r)
+                != 0)
+            || (self
                 .game
                 .blizzards_right
                 .iter()
                 .cycle()
                 .skip((self.game.maxxc - self.game.minic - 1) * self.t)
                 .nth(c - self.game.minic)
-                .unwrap()[r - self.game.minir]
+                .unwrap()
+                & (1 << r)
+                != 0)
     }
 }
 
@@ -198,22 +207,17 @@ pub fn solve(lines: &[String]) -> Solution {
                         let inner_h = std::cmp::max(game.blizzards_down.len(), r);
                         let inner_w = std::cmp::max(game.blizzards_right.len(), c);
 
-                        game.blizzards_right.resize(inner_w, vec![false; inner_h]);
-                        game.blizzards_left.resize(inner_w, vec![false; inner_h]);
-                        game.blizzards_up.resize(inner_h, vec![false; inner_w]);
-                        game.blizzards_down.resize(inner_h, vec![false; inner_w]);
-
-                        game.blizzards_right[c - 1].resize(inner_h, false);
-                        game.blizzards_left[c - 1].resize(inner_h, false);
-                        game.blizzards_up[r - 1].resize(inner_w, false);
-                        game.blizzards_down[r - 1].resize(inner_w, false);
+                        game.blizzards_right.resize(inner_w, 0);
+                        game.blizzards_left.resize(inner_w, 0);
+                        game.blizzards_up.resize(inner_h, 0);
+                        game.blizzards_down.resize(inner_h, 0);
                     }
 
                     match chr {
-                        '>' => game.blizzards_right[c - 1][r - 1] = true,
-                        '<' => game.blizzards_left[c - 1][r - 1] = true,
-                        '^' => game.blizzards_up[r - 1][c - 1] = true,
-                        'v' => game.blizzards_down[r - 1][c - 1] = true,
+                        '>' => game.blizzards_right[c - 1] |= 1 << r,
+                        '<' => game.blizzards_left[c - 1] |= 1 << r,
+                        '^' => game.blizzards_up[r - 1] |= 1 << c,
+                        'v' => game.blizzards_down[r - 1] |= 1 << c,
                         _ => assert!(chr == '#' || chr == '.'),
                     }
                 }
