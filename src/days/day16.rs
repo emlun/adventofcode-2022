@@ -13,7 +13,6 @@ struct Valve {
 #[derive(Eq, PartialEq)]
 struct State {
     max_t: u32,
-    t: u32,
     max_potential: u32,
     opened: u128,
     locked_rate: u32,
@@ -82,7 +81,6 @@ where
 
                     State {
                         max_t: state.max_t,
-                        t,
                         max_potential: released + (state.max_t - t - 1) * locked_rate,
                         opened: state.opened | next_pos,
                         locked_rate,
@@ -126,7 +124,6 @@ fn astar(
     let mut best = 0;
 
     queue.push(State {
-        t: 0,
         max_t,
         opened: 0,
         locked_rate: valves.values().map(|v| v.rate).sum(),
