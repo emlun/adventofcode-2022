@@ -74,10 +74,10 @@ where
             resources: state
                 .resources
                 .iter()
+                .zip(state.robots.iter())
                 .enumerate()
-                .map(|(res, have_qty)| {
-                    have_qty + state.robots[res]
-                        - make_robot.map(|(_, cost)| cost[res]).unwrap_or(0)
+                .map(|(typ, (have_res, have_robots))| {
+                    have_res + have_robots - make_robot.map(|(_, cost)| cost[typ]).unwrap_or(0)
                 })
                 .collect(),
             robots: {
