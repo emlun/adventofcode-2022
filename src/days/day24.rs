@@ -72,8 +72,8 @@ impl<'a> astar::State for State<'a> {
     type NewStates = Box<dyn Iterator<Item = Self> + 'a>;
 
     fn duplication_key(&self) -> Self::DuplicationKey {
-        (self.t << (3 * u8::BITS))
-            | (self.game.period << (2 * u8::BITS))
+        ((self.t % self.game.period) << (3 * u8::BITS))
+            | (usize::from(self.trips_left) << (2 * u8::BITS))
             | (usize::from(self.pos.0) << u8::BITS)
             | usize::from(self.pos.1)
     }
