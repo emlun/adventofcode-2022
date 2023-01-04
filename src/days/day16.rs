@@ -1,23 +1,46 @@
-use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
 use crate::common::Solution;
+use crate::search::astar;
 
-#[derive(Debug)]
+#[derive(Eq, PartialEq)]
+struct Game<'game> {
+    players: usize,
+    max_t: u32,
+    valves: &'game HashMap<u128, Valve>,
+    move_map: &'game HashMap<u128, Vec<(u128, u32)>>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
 struct Valve {
     rate: u32,
     tunnels: Vec<u128>,
 }
 
 #[derive(Eq, PartialEq)]
-struct State {
-    max_t: u32,
+struct State<'game> {
+    game: &'game Game<'game>,
     max_potential: u32,
     opened: u128,
     locked_rate: u32,
     released: u32,
     players: Vec<Player>,
+}
+
+impl<'game> State<'game> {
+    fn new(game: &'game Game) -> Self {
+        let locked_rate = game.valves.values().map(|v| v.rate).sum();
+        Self {
+            game,
+            max_potential: (game.max_t - 1) * locked_rate,
+            opened: 0,
+            locked_rate,
+            released: 0,
+            players: vec![Player { t: 0, pos: 1 }; game.players],
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -26,69 +49,67 @@ struct Player {
     pos: u128,
 }
 
-impl PartialOrd for State {
-    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(rhs))
-    }
-}
+impl<'game> astar::State for State<'game> {
+    type DuplicationKey = u128;
+    type Value = Reverse<u32>;
+    type NewStates = Box<dyn Iterator<Item = Self> + 'game>;
 
-impl Ord for State {
-    fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
-        self.max_potential.cmp(&rhs.max_potential)
+    fn value(&self) -> Self::Value {
+        Reverse(self.released)
     }
-}
 
-fn generate_moves<'a, 'b>(
-    state: &'a State,
-    valves: &'b HashMap<u128, Valve>,
-    move_map: &'b HashMap<u128, Vec<(u128, u32)>>,
-) -> impl Iterator<Item = State> + 'a
-where
-    'b: 'a,
-{
-    state
-        .players
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| p.t < state.max_t)
-        .flat_map(move |(i, player)| {
-            move_map[&player.pos]
-                .iter()
-                .filter(|(_, dt)| player.t + *dt + 1 < state.max_t)
-                .filter(|(next_pos, _)| state.opened & next_pos == 0)
-                .map(move |(next_pos, dt)| {
-                    let player_t = player.t + dt + 1;
-                    let players: Vec<Player> = state
-                        .players
+    fn estimate(&self) -> Self::Value {
+        Reverse(self.max_potential)
+    }
+
+    fn duplication_key(&self) -> Self::DuplicationKey {
+        self.opened
+    }
+
+    fn generate_moves(self) -> Self::NewStates {
+        Box::new(
+            (0..self.players.len())
+                .map(move |i| {
+                    let mut players = self.players.clone();
+                    let player = players.remove(i);
+                    (player, players)
+                })
+                .filter(|(p, _)| p.t < self.game.max_t)
+                .flat_map(move |(player, other_players)| {
+                    self.game.move_map[&player.pos]
                         .iter()
-                        .enumerate()
-                        .map(|(ii, p)| {
-                            if ii == i {
-                                Player {
+                        .filter(move |(_, dt)| player.t + *dt + 1 < self.game.max_t)
+                        .filter(move |(next_pos, _)| self.opened & next_pos == 0)
+                        .map(move |(next_pos, dt)| {
+                            let player_t = player.t + dt + 1;
+                            let players: Vec<Player> = other_players
+                                .iter()
+                                .cloned()
+                                .chain(Some(Player {
                                     t: player_t,
                                     pos: *next_pos,
-                                }
-                            } else {
-                                *p
+                                }))
+                                .collect();
+
+                            let t = players.iter().map(|p| p.t).min().unwrap();
+                            let released_rate = self.game.valves[next_pos].rate;
+                            let released =
+                                self.released + released_rate * (self.game.max_t - player_t);
+                            let locked_rate = self.locked_rate - released_rate;
+
+                            State {
+                                game: self.game,
+                                max_potential: released
+                                    + (self.game.max_t.saturating_sub(t + 1)) * locked_rate,
+                                opened: self.opened | next_pos,
+                                locked_rate,
+                                released,
+                                players,
                             }
                         })
-                        .collect();
-
-                    let t = players.iter().map(|p| p.t).min().unwrap();
-                    let released =
-                        state.released + valves[next_pos].rate * (state.max_t - player_t);
-                    let locked_rate = state.locked_rate - valves[next_pos].rate;
-
-                    State {
-                        max_t: state.max_t,
-                        max_potential: released + (state.max_t - t - 1) * locked_rate,
-                        opened: state.opened | next_pos,
-                        locked_rate,
-                        released,
-                        players,
-                    }
-                })
-        })
+                }),
+        )
+    }
 }
 
 fn bfs(valves: &HashMap<u128, Valve>, from: u128) -> Vec<(u128, u32)> {
@@ -111,50 +132,6 @@ fn bfs(valves: &HashMap<u128, Valve>, from: u128) -> Vec<(u128, u32)> {
         .into_iter()
         .filter(|(pos, _)| valves[pos].rate > 0)
         .collect()
-}
-
-fn astar(
-    valves: &HashMap<u128, Valve>,
-    move_map: &HashMap<u128, Vec<(u128, u32)>>,
-    num_pos: usize,
-    max_t: u32,
-) -> u32 {
-    let mut queue: BinaryHeap<State> = BinaryHeap::new();
-    let mut visited: HashMap<u128, u32> = HashMap::new();
-    let mut best = 0;
-
-    queue.push(State {
-        max_t,
-        opened: 0,
-        locked_rate: valves.values().map(|v| v.rate).sum(),
-        released: 0,
-        max_potential: valves.values().map(|v| v.rate).sum::<u32>() * max_t,
-        players: vec![Player { t: 0, pos: 1 }; num_pos],
-    });
-
-    while let Some(state) = queue.pop() {
-        if state.max_potential <= best {
-            return best;
-        } else if visited
-            .get(&state.opened)
-            .map(|b| *b <= state.released)
-            .unwrap_or(true)
-        {
-            for next_state in generate_moves(&state, valves, move_map) {
-                if next_state.max_potential > best
-                    && visited
-                        .get(&next_state.opened)
-                        .map(|b| *b < next_state.released)
-                        .unwrap_or(true)
-                {
-                    best = std::cmp::max(best, next_state.released);
-                    visited.insert(next_state.opened, next_state.released);
-                    queue.push(next_state);
-                }
-            }
-        }
-    }
-    best
 }
 
 pub fn solve(lines: &[String]) -> Solution {
@@ -216,8 +193,21 @@ pub fn solve(lines: &[String]) -> Solution {
         .map(|i| (*i, bfs(&flag_valves, *i)))
         .collect();
 
-    (
-        astar(&flag_valves, &move_map, 1, 30).to_string(),
-        astar(&flag_valves, &move_map, 2, 30 - 4).to_string(),
-    )
+    let sol_a = astar::astar_optimize(State::new(&Game {
+        valves: &flag_valves,
+        move_map: &move_map,
+        players: 1,
+        max_t: 30,
+    }))
+    .0;
+
+    let sol_b = astar::astar_optimize(State::new(&Game {
+        valves: &flag_valves,
+        move_map: &move_map,
+        players: 2,
+        max_t: 30 - 4,
+    }))
+    .0;
+
+    (sol_a.to_string(), sol_b.to_string())
 }
