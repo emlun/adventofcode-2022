@@ -3,6 +3,8 @@ use std::collections::HashMap;
 
 use crate::common::Solution;
 
+type Resources = [u32; 4];
+
 #[derive(Debug)]
 struct Blueprint {
     id: usize,
@@ -12,15 +14,15 @@ struct Blueprint {
 #[derive(Debug)]
 struct Recipe {
     output: usize,
-    ingredients: Vec<u32>,
+    ingredients: Resources,
 }
 
 #[derive(Debug, Eq, PartialEq)]
 struct State {
     max_t: usize,
     t: usize,
-    resources: Vec<u32>,
-    robots: Vec<u32>,
+    resources: Resources,
+    robots: Resources,
 }
 
 impl State {
@@ -71,17 +73,16 @@ where
         .map(|make_robot| State {
             max_t: state.max_t,
             t: state.t + 1,
-            resources: state
-                .resources
-                .iter()
-                .zip(state.robots.iter())
-                .enumerate()
-                .map(|(typ, (have_res, have_robots))| {
-                    have_res + have_robots - make_robot.map(|(_, cost)| cost[typ]).unwrap_or(0)
-                })
-                .collect(),
+            resources: {
+                let mut res = state.resources;
+                for i in 0..res.len() {
+                    res[i] =
+                        res[i] + state.robots[i] - make_robot.map(|(_, cost)| cost[i]).unwrap_or(0);
+                }
+                res
+            },
             robots: {
-                let mut rob = state.robots.clone();
+                let mut rob = state.robots;
                 if let Some((typ, _)) = make_robot {
                     rob[typ] += 1;
                 }
@@ -92,14 +93,14 @@ where
 
 fn astar(blueprint: &Blueprint, max_t: usize) -> u32 {
     let mut queue: BinaryHeap<State> = BinaryHeap::new();
-    let mut visited: HashMap<usize, HashMap<Vec<u32>, Vec<u32>>> = HashMap::new();
+    let mut visited: HashMap<usize, HashMap<Resources, Resources>> = HashMap::new();
     let mut best = 0;
 
     let init_state = State {
         max_t,
         t: 0,
-        resources: vec![0; 4],
-        robots: vec![1, 0, 0, 0],
+        resources: [0; 4],
+        robots: [1, 0, 0, 0],
     };
     queue.push(init_state);
 
@@ -132,7 +133,7 @@ fn astar(blueprint: &Blueprint, max_t: usize) -> u32 {
                     visited
                         .entry(next_state.t)
                         .or_default()
-                        .insert(next_state.robots.clone(), next_state.resources.clone());
+                        .insert(next_state.robots, next_state.resources);
                     if next_state.t < max_t {
                         queue.push(next_state);
                     }
@@ -228,19 +229,19 @@ pub fn solve(lines: &[String]) -> Solution {
                 recipes: [
                     Recipe {
                         output: 0,
-                        ingredients: vec![ore_bot, 0, 0, 0],
+                        ingredients: [ore_bot, 0, 0, 0],
                     },
                     Recipe {
                         output: 1,
-                        ingredients: vec![clay_bot, 0, 0, 0],
+                        ingredients: [clay_bot, 0, 0, 0],
                     },
                     Recipe {
                         output: 2,
-                        ingredients: vec![obsidian_bot.0, obsidian_bot.1, 0, 0],
+                        ingredients: [obsidian_bot.0, obsidian_bot.1, 0, 0],
                     },
                     Recipe {
                         output: 3,
-                        ingredients: vec![geode_bot.0, 0, geode_bot.1, 0],
+                        ingredients: [geode_bot.0, 0, geode_bot.1, 0],
                     },
                 ],
             }
