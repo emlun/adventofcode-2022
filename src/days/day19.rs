@@ -80,15 +80,13 @@ where
                         - make_robot.map(|(_, cost)| cost[res]).unwrap_or(0)
                 })
                 .collect(),
-            robots: state
-                .robots
-                .iter()
-                .enumerate()
-                .map(|(typ, num)| match make_robot {
-                    Some((mk, _)) if mk == typ => num + 1,
-                    _ => *num,
-                })
-                .collect(),
+            robots: {
+                let mut rob = state.robots.clone();
+                if let Some((typ, _)) = make_robot {
+                    rob[typ] += 1;
+                }
+                rob
+            },
         })
 }
 
