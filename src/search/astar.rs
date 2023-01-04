@@ -60,14 +60,14 @@ where
             return Some(state);
         } else if visited
             .get(&state.duplication_key())
-            .map(|v| *v >= state.value())
+            .map(|v| state.value() <= *v)
             .unwrap_or(true)
         {
             for next_state in state.generate_moves() {
                 let dk = next_state.duplication_key();
                 let nv = next_state.value();
                 match visited.entry(dk) {
-                    Entry::Occupied(mut occ) if *occ.get() < nv => {
+                    Entry::Occupied(mut occ) if nv < *occ.get() => {
                         occ.insert(nv);
                         queue.push(StateOrd(next_state));
                     }
