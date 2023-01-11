@@ -32,7 +32,7 @@ struct State {
 
 const DIRECTIONS: [(i32, i32); 4] = [(0, 1), (0, -1), (-1, 0), (1, 0)];
 
-fn step(state: &State) -> Option<State> {
+fn step(state: State) -> Option<State> {
     let proposals: HashMap<Point, Point> = state
         .map
         .iter()
@@ -102,16 +102,20 @@ fn measure_size(state: &State) -> usize {
     ((maxx + 1 - minx) * (maxy + 1 - miny)) as usize - state.map.len()
 }
 
-fn solve_a(state: &State) -> usize {
-    measure_size(
-        &std::iter::successors(Some(state.clone()), step)
-            .nth(10)
-            .unwrap(),
-    )
+fn solve_a(mut state: State) -> usize {
+    for _ in 0..10 {
+        state = step(state).unwrap();
+    }
+    measure_size(&state)
 }
 
-fn solve_b(state: &State) -> usize {
-    std::iter::successors(Some(state.clone()), step).count()
+fn solve_b(mut state: State) -> usize {
+    let mut i = 1;
+    while let Some(s) = step(state) {
+        state = s;
+        i += 1;
+    }
+    i
 }
 
 pub fn solve(lines: &[String]) -> Solution {
@@ -129,5 +133,8 @@ pub fn solve(lines: &[String]) -> Solution {
         .collect();
     let state = State { map, first_dir: 0 };
 
-    (solve_a(&state).to_string(), solve_b(&state).to_string())
+    (
+        solve_a(state.clone()).to_string(),
+        solve_b(state).to_string(),
+    )
 }
