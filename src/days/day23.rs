@@ -4,24 +4,20 @@ use std::collections::HashSet;
 use crate::common::Solution;
 use crate::util::iter::Countable;
 
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
-struct Point(u32);
+#[derive(Clone, Copy, Eq, PartialEq)]
+struct Point(i32, i32);
 
-impl From<(i32, i32)> for Point {
-    fn from((x, y): (i32, i32)) -> Self {
-        Self(((x + i32::from(u16::MAX / 2)) << 16) as u32 | (y + i32::from(u16::MAX / 2)) as u32)
+impl std::hash::Hash for Point {
+    fn hash<H>(&self, h: &mut H)
+    where
+        H: std::hash::Hasher,
+    {
+        std::hash::Hash::hash(&pack((self.0, self.1)), h)
     }
 }
 
-impl From<Point> for (i32, i32) {
-    fn from(Point(xy): Point) -> Self {
-        let x = (xy >> 16) & 0xffff;
-        let y = xy & 0xffff;
-        (
-            x as i32 - i32::from(u16::MAX / 2),
-            y as i32 - i32::from(u16::MAX / 2),
-        )
-    }
+fn pack((x, y): (i32, i32)) -> u32 {
+    ((x + i32::from(u16::MAX / 2)) << 16) as u32 | (y + i32::from(u16::MAX / 2)) as u32
 }
 
 #[derive(Clone)]
@@ -37,14 +33,13 @@ fn step(state: State) -> Option<State> {
         .map
         .iter()
         .copied()
-        .map(|xy| xy.into())
-        .filter(|(x, y)| {
+        .filter(|Point(x, y)| {
             (-1..=1)
                 .flat_map(|dx| (-1..=1).map(move |dy| (dx, dy)))
                 .filter(|(dx, dy)| (*dx, *dy) != (0, 0))
-                .any(|(dx, dy)| state.map.contains(&(x + dx, y + dy).into()))
+                .any(|(dx, dy)| state.map.contains(&Point(x + dx, y + dy)))
         })
-        .flat_map(|(x, y)| {
+        .flat_map(|Point(x, y)| {
             DIRECTIONS
                 .iter()
                 .cycle()
@@ -53,8 +48,8 @@ fn step(state: State) -> Option<State> {
                 .copied()
                 .find_map(|(dx, dy)| {
                     let (xx, yy) = (x + dx, y + dy);
-                    if !(-1..=1).any(|k| state.map.contains(&(xx - k * dy, yy - k * dx).into())) {
-                        Some(((x, y).into(), (xx, yy).into()))
+                    if !(-1..=1).any(|k| state.map.contains(&Point(xx - k * dy, yy - k * dx))) {
+                        Some((Point(x, y), Point(xx, yy)))
                     } else {
                         None
                     }
@@ -88,14 +83,14 @@ fn step(state: State) -> Option<State> {
 }
 
 fn measure_size(state: &State) -> usize {
-    let (minx, maxx, miny, maxy) = state.map.iter().map(|xy| (*xy).into()).fold(
+    let (minx, maxx, miny, maxy) = state.map.iter().fold(
         (i32::MAX, i32::MIN, i32::MAX, i32::MIN),
-        |(minx, maxx, miny, maxy), (x, y)| {
+        |(minx, maxx, miny, maxy), Point(x, y)| {
             (
-                std::cmp::min(minx, x),
-                std::cmp::max(maxx, x),
-                std::cmp::min(miny, y),
-                std::cmp::max(maxy, y),
+                std::cmp::min(minx, *x),
+                std::cmp::max(maxx, *x),
+                std::cmp::min(miny, *y),
+                std::cmp::max(maxy, *y),
             )
         },
     );
@@ -127,9 +122,8 @@ pub fn solve(lines: &[String]) -> Solution {
             line.chars()
                 .enumerate()
                 .filter(|(_, c)| *c == '#')
-                .map(move |(x, _)| (i32::try_from(x).unwrap(), -i32::try_from(y).unwrap()))
+                .map(move |(x, _)| Point(i32::try_from(x).unwrap(), -i32::try_from(y).unwrap()))
         })
-        .map(|xy| xy.into())
         .collect();
     let state = State { map, first_dir: 0 };
 
