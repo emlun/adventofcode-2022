@@ -23,46 +23,9 @@ mod bitgrid {
     use std::marker::PhantomData;
 
     const CELL_WIDTH: isize = 9;
-    const CELL_MASK_O: u128 = (1 << ((CELL_WIDTH + 2) * (CELL_WIDTH + 2))) - 1;
-    const CELL_MASK_I: u128 = CELL_MASK_O
-        ^ (EDGE_S_O
-            | EDGE_N_O
-            | EDGE_W_O
-            | EDGE_E_O
-            | EDGE_SW_O
-            | EDGE_SE_O
-            | EDGE_NW_O
-            | EDGE_NE_O);
 
     const SHIFT_N: isize = CELL_WIDTH + 2;
     const SHIFT_E: isize = 1;
-
-    const EDGE_S_I: u128 = 0b01111111110 << SHIFT_N;
-    const EDGE_N_I: u128 = EDGE_S_I << (SHIFT_N * (CELL_WIDTH - 1));
-    const EDGE_W_I: u128 = (0b10 << SHIFT_N)
-        | (0b10 << (SHIFT_N * 2))
-        | (0b10 << (SHIFT_N * 3))
-        | (0b10 << (SHIFT_N * 4))
-        | (0b10 << (SHIFT_N * 5))
-        | (0b10 << (SHIFT_N * 6))
-        | (0b10 << (SHIFT_N * 7))
-        | (0b10 << (SHIFT_N * 8))
-        | (0b10 << (SHIFT_N * 9));
-    const EDGE_E_I: u128 = EDGE_W_I << (CELL_WIDTH - 1);
-    const EDGE_SW_I: u128 = EDGE_S_I & EDGE_W_I;
-    const EDGE_SE_I: u128 = EDGE_S_I & EDGE_E_I;
-    const EDGE_NW_I: u128 = EDGE_N_I & EDGE_W_I;
-    const EDGE_NE_I: u128 = EDGE_N_I & EDGE_E_I;
-
-    const EDGE_S_O: u128 = EDGE_S_I >> SHIFT_N;
-    const EDGE_N_O: u128 = EDGE_N_I << SHIFT_N;
-    const EDGE_W_O: u128 = EDGE_W_I >> SHIFT_E;
-    const EDGE_E_O: u128 = EDGE_E_I << SHIFT_E;
-
-    const EDGE_SW_O: u128 = EDGE_SW_I >> (SHIFT_N + SHIFT_E);
-    const EDGE_SE_O: u128 = EDGE_SE_I >> (SHIFT_N - SHIFT_E);
-    const EDGE_NW_O: u128 = EDGE_NW_I << (SHIFT_N - SHIFT_E);
-    const EDGE_NE_O: u128 = EDGE_NE_I << (SHIFT_N + SHIFT_E);
 
     const OVERLAP_S: u128 = 0b11111111111 | (0b11111111111 << SHIFT_N);
     const OVERLAP_W: u128 = 0b11
@@ -146,9 +109,7 @@ mod bitgrid {
 
     pub struct CellRef<'grid> {
         grid: PhantomData<&'grid BitGrid>,
-        cell: u128,
         maskable_cell: u128,
-        i: isize,
     }
 
     pub struct CellRefMut<'grid> {
@@ -160,10 +121,6 @@ mod bitgrid {
     }
 
     impl<'grid> CellRef<'grid> {
-        fn is_set(&self) -> bool {
-            self.cell & (1 << self.i) != 0
-        }
-
         pub fn has_any_neighbor(&self) -> bool {
             self.maskable_cell & NEIGHBOR_MASK != 0
         }
@@ -250,13 +207,11 @@ mod bitgrid {
         }
 
         pub fn get(&self, x: isize, y: isize) -> CellRef {
-            let (cellx, celly, i, i_mask) = Self::to_coords(x, y);
+            let (cellx, celly, _, i_mask) = Self::to_coords(x, y);
             let cell = self.get_cell(cellx, celly).copied().unwrap_or(0);
             CellRef {
                 grid: PhantomData,
-                cell,
                 maskable_cell: cell >> i_mask,
-                i,
             }
         }
 
@@ -308,56 +263,6 @@ mod bitgrid {
 
             &mut ycell[iy]
         }
-
-        #[allow(unused)]
-        pub fn len(&self) -> usize {
-            usize::try_from(
-                self.xneg
-                    .iter()
-                    .chain(self.xpos.iter())
-                    .flat_map(|xs| xs.yneg.iter().chain(xs.ypos.iter()))
-                    .map(|cell| (cell & CELL_MASK_I).count_ones())
-                    .sum::<u32>(),
-            )
-            .unwrap()
-        }
-    }
-
-    #[allow(unused)]
-    fn print_grid(grid: &BitGrid, minx: isize, maxx: isize, miny: isize, maxy: isize) {
-        println!("x = {minx}..={maxx}    y = {miny}..={maxy}");
-        for y in (miny..=maxy).rev() {
-            print!("y={y:+03}  ");
-
-            for x in minx..=maxx {
-                print!("{}", if grid.get(x, y).is_set() { '#' } else { '.' })
-            }
-            println!();
-        }
-        println!();
-    }
-
-    #[allow(unused)]
-    fn format_bincell(cell: u128) -> String {
-        (0..CELL_WIDTH + 2)
-            .map(|y| {
-                (0..CELL_WIDTH + 2)
-                    .map(|x| {
-                        if cell & (1 << (y * (CELL_WIDTH + 2) + x)) != 0 {
-                            '1'
-                        } else {
-                            '.'
-                        }
-                    })
-                    .collect::<String>()
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
-    }
-
-    #[allow(unused)]
-    fn print_bincell(cell: u128) {
-        println!("{}\n", format_bincell(cell));
     }
 }
 
