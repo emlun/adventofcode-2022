@@ -1,91 +1,441 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
-
 use crate::common::Solution;
 use crate::util::iter::Countable;
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-struct Point(i32, i32);
+use bitgrid::Direction;
 
-impl std::hash::Hash for Point {
-    fn hash<H>(&self, h: &mut H)
-    where
-        H: std::hash::Hasher,
-    {
-        std::hash::Hash::hash(&pack((self.0, self.1)), h)
+mod bitgrid {
+    // Flag map:
+    //    x
+    // y  012345678     i
+    //   \SSSSSSSSS/   0-10    Left shift (<<) increases x
+    // 0 WAAAAAAAAAE  11-22
+    // 1 WAAAAAAAAAE  23-33
+    // 2 WAAAAAAAAAE  34-44    West is lower (right-er) index
+    // 3 WAAAAAAAAAE  45-55    East is higher (left-er) index
+    // 4 WAAAAAAAAAE  56-66
+    // 5 WAAAAAAAAAE  67-77
+    // 6 WAAAAAAAAAE  78-88
+    // 7 WAAAAAAAAAE  89-99
+    // 8 WAAAAAAAAAE 100-110
+    //   /NNNNNNNNN\ 111-120
+    //   .......     121-127    Unused
+
+    use std::marker::PhantomData;
+
+    const CELL_WIDTH: isize = 9;
+    const CELL_MASK_O: u128 = (1 << ((CELL_WIDTH + 2) * (CELL_WIDTH + 2))) - 1;
+    const CELL_MASK_I: u128 = CELL_MASK_O
+        ^ (EDGE_S_O
+            | EDGE_N_O
+            | EDGE_W_O
+            | EDGE_E_O
+            | EDGE_SW_O
+            | EDGE_SE_O
+            | EDGE_NW_O
+            | EDGE_NE_O);
+
+    const SHIFT_N: isize = CELL_WIDTH + 2;
+    const SHIFT_E: isize = 1;
+
+    const EDGE_S_I: u128 = 0b01111111110 << SHIFT_N;
+    const EDGE_N_I: u128 = EDGE_S_I << (SHIFT_N * (CELL_WIDTH - 1));
+    const EDGE_W_I: u128 = (0b10 << SHIFT_N)
+        | (0b10 << (SHIFT_N * 2))
+        | (0b10 << (SHIFT_N * 3))
+        | (0b10 << (SHIFT_N * 4))
+        | (0b10 << (SHIFT_N * 5))
+        | (0b10 << (SHIFT_N * 6))
+        | (0b10 << (SHIFT_N * 7))
+        | (0b10 << (SHIFT_N * 8))
+        | (0b10 << (SHIFT_N * 9));
+    const EDGE_E_I: u128 = EDGE_W_I << (CELL_WIDTH - 1);
+    const EDGE_SW_I: u128 = EDGE_S_I & EDGE_W_I;
+    const EDGE_SE_I: u128 = EDGE_S_I & EDGE_E_I;
+    const EDGE_NW_I: u128 = EDGE_N_I & EDGE_W_I;
+    const EDGE_NE_I: u128 = EDGE_N_I & EDGE_E_I;
+
+    const EDGE_S_O: u128 = EDGE_S_I >> SHIFT_N;
+    const EDGE_N_O: u128 = EDGE_N_I << SHIFT_N;
+    const EDGE_W_O: u128 = EDGE_W_I >> SHIFT_E;
+    const EDGE_E_O: u128 = EDGE_E_I << SHIFT_E;
+
+    const EDGE_SW_O: u128 = EDGE_SW_I >> (SHIFT_N + SHIFT_E);
+    const EDGE_SE_O: u128 = EDGE_SE_I >> (SHIFT_N - SHIFT_E);
+    const EDGE_NW_O: u128 = EDGE_NW_I << (SHIFT_N - SHIFT_E);
+    const EDGE_NE_O: u128 = EDGE_NE_I << (SHIFT_N + SHIFT_E);
+
+    const OVERLAP_S: u128 = 0b11111111111 | (0b11111111111 << SHIFT_N);
+    const OVERLAP_W: u128 = 0b11
+        | (0b11 << SHIFT_N)
+        | (0b11 << (SHIFT_N * 2))
+        | (0b11 << (SHIFT_N * 3))
+        | (0b11 << (SHIFT_N * 4))
+        | (0b11 << (SHIFT_N * 5))
+        | (0b11 << (SHIFT_N * 6))
+        | (0b11 << (SHIFT_N * 7))
+        | (0b11 << (SHIFT_N * 8))
+        | (0b11 << (SHIFT_N * 9))
+        | (0b11 << (SHIFT_N * 10));
+    const OVERLAP_N: u128 = OVERLAP_S << (SHIFT_N * CELL_WIDTH);
+    const OVERLAP_E: u128 = OVERLAP_W << CELL_WIDTH;
+
+    const SHIFT_S_I_TO_N_O: isize = SHIFT_N * CELL_WIDTH;
+    const SHIFT_W_I_TO_E_O: isize = CELL_WIDTH;
+    const SHIFT_SW_I_TO_NE_O: isize = SHIFT_S_I_TO_N_O + SHIFT_W_I_TO_E_O;
+    const SHIFT_SE_I_TO_NW_O: isize = SHIFT_S_I_TO_N_O - SHIFT_W_I_TO_E_O;
+
+    const NEIGHBOR_MASK: u128 = 0b111 | (0b101 << SHIFT_N) | (0b111 << (SHIFT_N * 2));
+    const NEIGHBOR_S_MASK: u128 = 0b111;
+    const NEIGHBOR_N_MASK: u128 = 0b111 << (SHIFT_N * 2);
+    const NEIGHBOR_W_MASK: u128 = 0b001 | (0b001 << SHIFT_N) | (0b001 << (SHIFT_N * 2));
+    const NEIGHBOR_E_MASK: u128 = 0b100 | (0b100 << SHIFT_N) | (0b100 << (SHIFT_N * 2));
+
+    const MOVE_S_XOR: u128 = 0b010 | (0b010 << SHIFT_N);
+    const MOVE_N_XOR: u128 = (0b010 << SHIFT_N) | (0b010 << (SHIFT_N * 2));
+    const MOVE_W_XOR: u128 = 0b011 << SHIFT_N;
+    const MOVE_E_XOR: u128 = 0b110 << SHIFT_N;
+
+    #[derive(Clone, Default)]
+    pub struct BitGrid {
+        xpos: Vec<VecsY>,
+        xneg: Vec<VecsY>,
+    }
+
+    #[derive(Clone, Default)]
+    struct VecsY {
+        ypos: Vec<u128>,
+        yneg: Vec<u128>,
+    }
+
+    #[derive(Clone, Copy)]
+    pub enum Direction {
+        S,
+        N,
+        E,
+        W,
+    }
+
+    impl Direction {
+        pub const fn move_coords(&self, x: isize, y: isize) -> (isize, isize) {
+            match self {
+                Self::S => (x, y - 1),
+                Self::N => (x, y + 1),
+                Self::W => (x - 1, y),
+                Self::E => (x + 1, y),
+            }
+        }
+
+        const fn neighbor_mask(&self) -> u128 {
+            match self {
+                Self::S => NEIGHBOR_S_MASK,
+                Self::N => NEIGHBOR_N_MASK,
+                Self::W => NEIGHBOR_W_MASK,
+                Self::E => NEIGHBOR_E_MASK,
+            }
+        }
+
+        const fn move_xor(&self) -> u128 {
+            match self {
+                Self::S => MOVE_S_XOR,
+                Self::N => MOVE_N_XOR,
+                Self::W => MOVE_W_XOR,
+                Self::E => MOVE_E_XOR,
+            }
+        }
+    }
+
+    pub struct CellRef<'grid> {
+        grid: PhantomData<&'grid BitGrid>,
+        cell: u128,
+        maskable_cell: u128,
+        i: isize,
+    }
+
+    pub struct CellRefMut<'grid> {
+        grid: &'grid mut BitGrid,
+        cellx: isize,
+        celly: isize,
+        i: isize,
+        i_mask: isize,
+    }
+
+    impl<'grid> CellRef<'grid> {
+        fn is_set(&self) -> bool {
+            self.cell & (1 << self.i) != 0
+        }
+
+        pub fn has_any_neighbor(&self) -> bool {
+            self.maskable_cell & NEIGHBOR_MASK != 0
+        }
+
+        pub fn has_neighbor_dir(&self, dir: Direction) -> bool {
+            self.maskable_cell & dir.neighbor_mask() != 0
+        }
+    }
+
+    impl<'grid> CellRefMut<'grid> {
+        pub fn set(self) {
+            let i = self.i;
+            let cell = self.grid.get_cell_mut(self.cellx, self.celly);
+            let cell_before = *cell;
+
+            *cell |= 1 << i;
+
+            let cell_after = *cell;
+            self.update_neighbors(cell_before ^ cell_after);
+        }
+
+        pub fn move_bit(self, dir: Direction) {
+            let i_mask = self.i_mask;
+            let cell = self.grid.get_cell_mut(self.cellx, self.celly);
+            let cell_before = *cell;
+
+            *cell ^= dir.move_xor() << i_mask;
+
+            let cell_after = *cell;
+            self.update_neighbors(cell_before ^ cell_after);
+        }
+
+        fn update_neighbors(self, cell_diff: u128) {
+            let diff_s = cell_diff & OVERLAP_S;
+            let diff_n = cell_diff & OVERLAP_N;
+            let diff_w = cell_diff & OVERLAP_W;
+            let diff_e = cell_diff & OVERLAP_E;
+
+            let is_s = diff_s != 0;
+            let is_n = diff_n != 0;
+            let is_w = diff_w != 0;
+            let is_e = diff_e != 0;
+
+            if is_s {
+                let neighbor = self.grid.get_cell_mut(self.cellx, self.celly - 1);
+                *neighbor ^= diff_s << SHIFT_S_I_TO_N_O;
+            } else if is_n {
+                let neighbor = self.grid.get_cell_mut(self.cellx, self.celly + 1);
+                *neighbor ^= diff_n >> SHIFT_S_I_TO_N_O;
+            }
+            if is_w {
+                let neighbor = self.grid.get_cell_mut(self.cellx - 1, self.celly);
+                *neighbor ^= diff_w << SHIFT_W_I_TO_E_O;
+            } else if is_e {
+                let neighbor = self.grid.get_cell_mut(self.cellx + 1, self.celly);
+                *neighbor ^= diff_e >> SHIFT_W_I_TO_E_O;
+            }
+
+            if is_s && is_w {
+                let neighbor = self.grid.get_cell_mut(self.cellx - 1, self.celly - 1);
+                *neighbor ^= (diff_s & diff_w) << SHIFT_SW_I_TO_NE_O;
+            } else if is_s && is_e {
+                let neighbor = self.grid.get_cell_mut(self.cellx + 1, self.celly - 1);
+                *neighbor ^= (diff_s & diff_e) << SHIFT_SE_I_TO_NW_O;
+            } else if is_n && is_w {
+                let neighbor = self.grid.get_cell_mut(self.cellx - 1, self.celly + 1);
+                *neighbor ^= (diff_n & diff_w) >> SHIFT_SE_I_TO_NW_O;
+            } else if is_n && is_e {
+                let neighbor = self.grid.get_cell_mut(self.cellx + 1, self.celly + 1);
+                *neighbor ^= (diff_n & diff_e) >> SHIFT_SW_I_TO_NE_O;
+            }
+        }
+    }
+
+    impl BitGrid {
+        fn to_coords(x: isize, y: isize) -> (isize, isize, isize, isize) {
+            let remx = x.rem_euclid(CELL_WIDTH);
+            let remy = y.rem_euclid(CELL_WIDTH);
+            let cellx = (x - remx) / CELL_WIDTH;
+            let celly = (y - remy) / CELL_WIDTH;
+            let i = (remy + 1) * SHIFT_N + (remx + 1) * SHIFT_E;
+            let i_mask = remy * SHIFT_N + remx * SHIFT_E;
+            (cellx, celly, i, i_mask)
+        }
+
+        pub fn get(&self, x: isize, y: isize) -> CellRef {
+            let (cellx, celly, i, i_mask) = Self::to_coords(x, y);
+            let cell = self.get_cell(cellx, celly).copied().unwrap_or(0);
+            CellRef {
+                grid: PhantomData,
+                cell,
+                maskable_cell: cell >> i_mask,
+                i,
+            }
+        }
+
+        pub fn get_mut(&mut self, x: isize, y: isize) -> CellRefMut {
+            let (cellx, celly, i, i_mask) = Self::to_coords(x, y);
+            CellRefMut {
+                grid: self,
+                cellx,
+                celly,
+                i,
+                i_mask,
+            }
+        }
+
+        fn get_cell(&self, cellx: isize, celly: isize) -> Option<&u128> {
+            let xcell = if cellx < 0 {
+                self.xneg.get(cellx.abs_diff(-1))
+            } else {
+                self.xpos.get(cellx.abs_diff(0))
+            };
+
+            xcell.and_then(|ys| {
+                if celly < 0 {
+                    ys.yneg.get(celly.abs_diff(-1))
+                } else {
+                    ys.ypos.get(celly.abs_diff(0))
+                }
+            })
+        }
+
+        fn get_cell_mut(&mut self, cellx: isize, celly: isize) -> &mut u128 {
+            let (xcell, ix) = match cellx.signum() {
+                -1 => (&mut self.xneg, cellx.abs_diff(-1)),
+                _ => (&mut self.xpos, cellx.abs_diff(0)),
+            };
+
+            if ix >= xcell.len() {
+                xcell.resize_with((ix + 1) * 2, Default::default);
+            }
+
+            let (ycell, iy) = match celly.signum() {
+                -1 => (&mut xcell[ix].yneg, celly.abs_diff(-1)),
+                _ => (&mut xcell[ix].ypos, celly.abs_diff(0)),
+            };
+
+            if iy >= ycell.len() {
+                ycell.resize_with((iy + 1) * 2, Default::default);
+            }
+
+            &mut ycell[iy]
+        }
+
+        #[allow(unused)]
+        pub fn len(&self) -> usize {
+            usize::try_from(
+                self.xneg
+                    .iter()
+                    .chain(self.xpos.iter())
+                    .flat_map(|xs| xs.yneg.iter().chain(xs.ypos.iter()))
+                    .map(|cell| (cell & CELL_MASK_I).count_ones())
+                    .sum::<u32>(),
+            )
+            .unwrap()
+        }
+    }
+
+    #[allow(unused)]
+    fn print_grid(grid: &BitGrid, minx: isize, maxx: isize, miny: isize, maxy: isize) {
+        println!("x = {minx}..={maxx}    y = {miny}..={maxy}");
+        for y in (miny..=maxy).rev() {
+            print!("y={y:+03}  ");
+
+            for x in minx..=maxx {
+                print!("{}", if grid.get(x, y).is_set() { '#' } else { '.' })
+            }
+            println!();
+        }
+        println!();
+    }
+
+    #[allow(unused)]
+    fn format_bincell(cell: u128) -> String {
+        (0..CELL_WIDTH + 2)
+            .map(|y| {
+                (0..CELL_WIDTH + 2)
+                    .map(|x| {
+                        if cell & (1 << (y * (CELL_WIDTH + 2) + x)) != 0 {
+                            '1'
+                        } else {
+                            '.'
+                        }
+                    })
+                    .collect::<String>()
+            })
+            .collect::<Vec<String>>()
+            .join("\n")
+    }
+
+    #[allow(unused)]
+    fn print_bincell(cell: u128) {
+        println!("{}\n", format_bincell(cell));
     }
 }
 
-fn pack((x, y): (i32, i32)) -> u32 {
-    ((x + i32::from(u16::MAX / 2)) << 16) as u32 | (y + i32::from(u16::MAX / 2)) as u32
+type Point = (isize, isize);
+
+fn pack((x, y): (isize, isize)) -> u32 {
+    ((x as i32 + i32::from(u16::MAX / 2)) << 16) as u32
+        | (y as i32 + i32::from(u16::MAX / 2)) as u32
 }
 
 #[derive(Clone)]
 struct State {
-    map: HashSet<Point>,
+    poss: Vec<Point>,
+    bitgrid: bitgrid::BitGrid,
     first_dir: usize,
 }
 
-const DIRECTIONS: [(i32, i32); 4] = [(0, 1), (0, -1), (-1, 0), (1, 0)];
-
 fn step(state: State) -> Option<State> {
-    let proposals: HashMap<Point, Point> = state
-        .map
+    let proposals: Vec<Option<(Direction, Point, u32)>> = state
+        .poss
         .iter()
         .copied()
-        .filter(|Point(x, y)| {
-            (-1..=1)
-                .flat_map(|dx| (-1..=1).map(move |dy| (dx, dy)))
-                .filter(|(dx, dy)| (*dx, *dy) != (0, 0))
-                .any(|(dx, dy)| state.map.contains(&Point(x + dx, y + dy)))
-        })
-        .flat_map(|Point(x, y)| {
-            DIRECTIONS
-                .iter()
-                .cycle()
-                .skip(state.first_dir)
-                .take(4)
-                .copied()
-                .find_map(|(dx, dy)| {
-                    let (xx, yy) = (x + dx, y + dy);
-                    if !(-1..=1).any(|k| state.map.contains(&Point(xx - k * dy, yy - k * dx))) {
-                        Some((Point(x, y), Point(xx, yy)))
-                    } else {
-                        None
-                    }
-                })
+        .map(|(x, y)| {
+            let flag = state.bitgrid.get(x, y);
+            if flag.has_any_neighbor() {
+                [Direction::N, Direction::S, Direction::W, Direction::E]
+                    .iter()
+                    .cycle()
+                    .skip(state.first_dir)
+                    .take(4)
+                    .copied()
+                    .find(|dir| !flag.has_neighbor_dir(*dir))
+                    .map(|dir| {
+                        let (xx, yy) = dir.move_coords(x, y);
+                        (dir, (xx, yy), pack((xx, yy)))
+                    })
+            } else {
+                None
+            }
         })
         .collect();
 
-    if proposals.is_empty() {
+    let proposal_counts = proposals
+        .iter()
+        .flatten()
+        .map(|(_, _, p)| p)
+        .copied()
+        .counts();
+
+    if proposal_counts.is_empty() {
         None
     } else {
-        let proposal_counts = proposals.values().counts();
+        let mut bitgrid = state.bitgrid;
+        let poss = state
+            .poss
+            .into_iter()
+            .zip(proposals)
+            .map(|(orig @ (ox, oy), prop)| match prop {
+                Some((dir, dest, packed_dest)) if proposal_counts[&packed_dest] == 1 => {
+                    bitgrid.get_mut(ox, oy).move_bit(dir);
+                    dest
+                }
+                _ => orig,
+            })
+            .collect();
 
         Some(State {
-            map: state
-                .map
-                .iter()
-                .map(|orig| {
-                    if let Some(prop) = proposals
-                        .get(orig)
-                        .filter(|prop| proposal_counts[prop] == 1)
-                    {
-                        *prop
-                    } else {
-                        *orig
-                    }
-                })
-                .collect(),
+            bitgrid,
+            poss,
             first_dir: (state.first_dir + 1) % 4,
         })
     }
 }
 
 fn measure_size(state: &State) -> usize {
-    let (minx, maxx, miny, maxy) = state.map.iter().fold(
-        (i32::MAX, i32::MIN, i32::MAX, i32::MIN),
-        |(minx, maxx, miny, maxy), Point(x, y)| {
+    let (minx, maxx, miny, maxy) = state.poss.iter().fold(
+        (isize::MAX, isize::MIN, isize::MAX, isize::MIN),
+        |(minx, maxx, miny, maxy), (x, y)| {
             (
                 std::cmp::min(minx, *x),
                 std::cmp::max(maxx, *x),
@@ -94,7 +444,7 @@ fn measure_size(state: &State) -> usize {
             )
         },
     );
-    ((maxx + 1 - minx) * (maxy + 1 - miny)) as usize - state.map.len()
+    ((maxx + 1 - minx) * (maxy + 1 - miny)) as usize - state.poss.len()
 }
 
 fn solve_a(mut state: State) -> usize {
@@ -114,7 +464,7 @@ fn solve_b(mut state: State) -> usize {
 }
 
 pub fn solve(lines: &[String]) -> Solution {
-    let map: HashSet<Point> = lines
+    let poss: Vec<Point> = lines
         .iter()
         .filter(|line| !line.is_empty())
         .enumerate()
@@ -122,10 +472,20 @@ pub fn solve(lines: &[String]) -> Solution {
             line.chars()
                 .enumerate()
                 .filter(|(_, c)| *c == '#')
-                .map(move |(x, _)| Point(i32::try_from(x).unwrap(), -i32::try_from(y).unwrap()))
+                .map(move |(x, _)| (isize::try_from(x).unwrap(), -isize::try_from(y).unwrap()))
         })
         .collect();
-    let state = State { map, first_dir: 0 };
+    let state = State {
+        bitgrid: poss
+            .iter()
+            .copied()
+            .fold(Default::default(), |mut bg, (x, y)| {
+                bg.get_mut(x, y).set();
+                bg
+            }),
+        poss,
+        first_dir: 0,
+    };
 
     (
         solve_a(state.clone()).to_string(),
