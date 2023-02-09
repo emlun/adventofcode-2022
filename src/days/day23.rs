@@ -20,6 +20,7 @@ mod bitgrid {
     //   /NNNNNNNNN\ 111-120
     //   .......     121-127    Unused
 
+    use crate::util::collections::SignedVec;
     use std::marker::PhantomData;
 
     const CELL_WIDTH: isize = 9;
@@ -60,14 +61,7 @@ mod bitgrid {
 
     #[derive(Clone, Default)]
     pub struct BitGrid {
-        xpos: Vec<VecsY>,
-        xneg: Vec<VecsY>,
-    }
-
-    #[derive(Clone, Default)]
-    struct VecsY {
-        ypos: Vec<u128>,
-        yneg: Vec<u128>,
+        cols: SignedVec<SignedVec<u128>>,
     }
 
     #[derive(Clone, Copy)]
@@ -227,41 +221,13 @@ mod bitgrid {
         }
 
         fn get_cell(&self, cellx: isize, celly: isize) -> Option<&u128> {
-            let xcell = if cellx < 0 {
-                self.xneg.get(cellx.abs_diff(-1))
-            } else {
-                self.xpos.get(cellx.abs_diff(0))
-            };
-
-            xcell.and_then(|ys| {
-                if celly < 0 {
-                    ys.yneg.get(celly.abs_diff(-1))
-                } else {
-                    ys.ypos.get(celly.abs_diff(0))
-                }
-            })
+            self.cols.get(cellx).and_then(|ys| ys.get(celly))
         }
 
         fn get_cell_mut(&mut self, cellx: isize, celly: isize) -> &mut u128 {
-            let (xcell, ix) = match cellx.signum() {
-                -1 => (&mut self.xneg, cellx.abs_diff(-1)),
-                _ => (&mut self.xpos, cellx.abs_diff(0)),
-            };
-
-            if ix >= xcell.len() {
-                xcell.resize_with((ix + 1) * 2, Default::default);
-            }
-
-            let (ycell, iy) = match celly.signum() {
-                -1 => (&mut xcell[ix].yneg, celly.abs_diff(-1)),
-                _ => (&mut xcell[ix].ypos, celly.abs_diff(0)),
-            };
-
-            if iy >= ycell.len() {
-                ycell.resize_with((iy + 1) * 2, Default::default);
-            }
-
-            &mut ycell[iy]
+            self.cols
+                .get_mut_or_default(cellx)
+                .get_mut_or_default(celly)
         }
     }
 }

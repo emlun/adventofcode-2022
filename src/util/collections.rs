@@ -76,3 +76,87 @@ impl GridCount {
         self.points[ix][iy] |= mask;
     }
 }
+
+#[derive(Clone)]
+pub struct SignedVec<T> {
+    pos: Vec<T>,
+    neg: Vec<T>,
+}
+
+impl<T> Default for SignedVec<T>
+where
+    Vec<T>: Default,
+{
+    fn default() -> Self {
+        Self {
+            pos: Default::default(),
+            neg: Default::default(),
+        }
+    }
+}
+
+impl<T> SignedVec<T> {
+    #[allow(unused)]
+    pub const fn new() -> Self {
+        Self {
+            pos: Vec::new(),
+            neg: Vec::new(),
+        }
+    }
+
+    pub fn get(&self, i: isize) -> Option<&T> {
+        if i < 0 {
+            self.neg.get(i.abs_diff(-1))
+        } else {
+            self.pos.get(i.abs_diff(0))
+        }
+    }
+
+    #[allow(unused)]
+    pub fn get_mut(&mut self, i: isize) -> Option<&mut T> {
+        if i < 0 {
+            self.neg.get_mut(i.abs_diff(-1))
+        } else {
+            self.pos.get_mut(i.abs_diff(0))
+        }
+    }
+}
+
+impl<T> SignedVec<T>
+where
+    T: Clone,
+{
+    #[allow(unused)]
+    pub fn get_mut_or(&mut self, i: isize, v: T) -> &mut T {
+        let (vec, ii) = if i < 0 {
+            (&mut self.neg, i.abs_diff(-1))
+        } else {
+            (&mut self.pos, i.abs_diff(0))
+        };
+
+        if ii >= vec.len() {
+            vec.resize((ii + 1) * 2, v);
+        }
+
+        &mut vec[ii]
+    }
+}
+
+impl<T> SignedVec<T>
+where
+    T: Default,
+{
+    pub fn get_mut_or_default(&mut self, i: isize) -> &mut T {
+        let (vec, ii) = if i < 0 {
+            (&mut self.neg, i.abs_diff(-1))
+        } else {
+            (&mut self.pos, i.abs_diff(0))
+        };
+
+        if ii >= vec.len() {
+            vec.resize_with((ii + 1) * 2, Default::default);
+        }
+
+        &mut vec[ii]
+    }
+}
