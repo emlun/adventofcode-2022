@@ -104,6 +104,10 @@ impl<T> SignedVec<T> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.pos.is_empty() && self.neg.is_empty()
+    }
+
     pub fn get(&self, i: isize) -> Option<&T> {
         if i < 0 {
             self.neg.get(i.abs_diff(-1))
