@@ -1,4 +1,5 @@
 use crate::common::Solution;
+use crate::util::collections::SignedVec;
 
 use bitgrid::Direction;
 
@@ -102,9 +103,7 @@ mod bitgrid {
 
     pub struct CellRef<'grid> {
         grid: PhantomData<&'grid BitGrid>,
-        cell: u128,
         maskable_cell: u128,
-        i: isize,
     }
 
     pub struct CellRefMut<'grid> {
@@ -116,10 +115,6 @@ mod bitgrid {
     }
 
     impl<'grid> CellRef<'grid> {
-        pub fn is_set(&self) -> bool {
-            self.cell & (1 << self.i) != 0
-        }
-
         pub fn has_any_neighbor(&self) -> bool {
             self.maskable_cell & NEIGHBOR_MASK != 0
         }
@@ -170,6 +165,7 @@ mod bitgrid {
                 let neighbor = self.grid.get_cell_mut(self.cellx, self.celly + 1);
                 *neighbor ^= diff_n >> SHIFT_S_I_TO_N_O;
             }
+
             if is_w {
                 let neighbor = self.grid.get_cell_mut(self.cellx - 1, self.celly);
                 *neighbor ^= diff_w << SHIFT_W_I_TO_E_O;
@@ -210,13 +206,11 @@ mod bitgrid {
         }
 
         pub fn get(&self, x: isize, y: isize) -> CellRef {
-            let (cellx, celly, i, i_mask) = Self::to_coords(x, y);
+            let (cellx, celly, _, i_mask) = Self::to_coords(x, y);
             let cell = self.get_cell(cellx, celly).copied().unwrap_or(0);
             CellRef {
                 grid: PhantomData,
-                cell,
                 maskable_cell: cell >> i_mask,
-                i,
             }
         }
 
@@ -253,8 +247,7 @@ struct State {
 }
 
 fn step(state: State) -> Option<State> {
-    let mut proposals_grid1 = state.bitgrid.clone();
-    let mut proposals_grid2 = state.bitgrid.clone();
+    let mut proposals_grid: SignedVec<SignedVec<u32>> = SignedVec::new();
     let proposals: Vec<Option<(Point, Direction)>> = state
         .poss
         .iter()
@@ -272,11 +265,7 @@ fn step(state: State) -> Option<State> {
                     .find(|dir| !flag.has_neighbor_dir(*dir))
                     .map(|dir| {
                         let (xx, yy) = dir.move_coords(x, y);
-                        if proposals_grid1.get(xx, yy).is_set() {
-                            proposals_grid2.get_mut(xx, yy).set();
-                        } else {
-                            proposals_grid1.get_mut(xx, yy).set();
-                        }
+                        *proposals_grid.get_mut_or_default(xx).get_mut_or_default(yy) += 1;
                         ((xx, yy), dir)
                     })
             } else {
@@ -285,7 +274,7 @@ fn step(state: State) -> Option<State> {
         })
         .collect();
 
-    if proposals.iter().all(Option::is_none) {
+    if proposals_grid.is_empty() {
         None
     } else {
         let State {
@@ -296,7 +285,13 @@ fn step(state: State) -> Option<State> {
 
         for (prop, pos) in proposals.into_iter().zip(poss.iter_mut()) {
             if let Some((dest @ (xx, yy), dir)) = prop {
-                if proposals_grid1.get(xx, yy).is_set() && !proposals_grid2.get(xx, yy).is_set() {
+                if proposals_grid
+                    .get(xx)
+                    .and_then(|ys| ys.get(yy))
+                    .copied()
+                    .unwrap_or(0)
+                    == 1
+                {
                     let (ox, oy) = *pos;
                     *pos = dest;
                     bitgrid.get_mut(ox, oy).move_bit(dir);
