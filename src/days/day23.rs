@@ -195,7 +195,7 @@ mod bitgrid {
     }
 
     impl BitGrid {
-        fn to_coords(x: isize, y: isize) -> (isize, isize, isize, isize) {
+        const fn to_coords(x: isize, y: isize) -> (isize, isize, isize, isize) {
             let remx = x.rem_euclid(CELL_WIDTH);
             let remy = y.rem_euclid(CELL_WIDTH);
             let cellx = (x - remx) / CELL_WIDTH;
