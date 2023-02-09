@@ -35,7 +35,7 @@ impl Expr {
         use Expr::*;
         match self {
             Num(n) => n,
-            other => panic!("Not a numeric value: {:?}", other),
+            other => panic!("Not a numeric value: {other:?}"),
         }
     }
 
