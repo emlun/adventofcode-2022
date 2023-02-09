@@ -1,5 +1,4 @@
 use crate::common::Solution;
-use crate::util::iter::Countable;
 
 use bitgrid::Direction;
 
@@ -103,7 +102,9 @@ mod bitgrid {
 
     pub struct CellRef<'grid> {
         grid: PhantomData<&'grid BitGrid>,
+        cell: u128,
         maskable_cell: u128,
+        i: isize,
     }
 
     pub struct CellRefMut<'grid> {
@@ -115,6 +116,10 @@ mod bitgrid {
     }
 
     impl<'grid> CellRef<'grid> {
+        pub fn is_set(&self) -> bool {
+            self.cell & (1 << self.i) != 0
+        }
+
         pub fn has_any_neighbor(&self) -> bool {
             self.maskable_cell & NEIGHBOR_MASK != 0
         }
@@ -201,11 +206,13 @@ mod bitgrid {
         }
 
         pub fn get(&self, x: isize, y: isize) -> CellRef {
-            let (cellx, celly, _, i_mask) = Self::to_coords(x, y);
+            let (cellx, celly, i, i_mask) = Self::to_coords(x, y);
             let cell = self.get_cell(cellx, celly).copied().unwrap_or(0);
             CellRef {
                 grid: PhantomData,
+                cell,
                 maskable_cell: cell >> i_mask,
+                i,
             }
         }
 
@@ -234,11 +241,6 @@ mod bitgrid {
 
 type Point = (isize, isize);
 
-fn pack((x, y): (isize, isize)) -> u32 {
-    ((x as i32 + i32::from(u16::MAX / 2)) << 16) as u32
-        | (y as i32 + i32::from(u16::MAX / 2)) as u32
-}
-
 #[derive(Clone)]
 struct State {
     poss: Vec<Point>,
@@ -247,12 +249,15 @@ struct State {
 }
 
 fn step(state: State) -> Option<State> {
-    let proposals: Vec<Option<(Direction, Point, u32)>> = state
+    let mut proposals_grid1 = state.bitgrid.clone();
+    let mut proposals_grid2 = state.bitgrid.clone();
+    let proposals: Vec<Option<(Point, Direction)>> = state
         .poss
         .iter()
         .copied()
         .map(|(x, y)| {
             let flag = state.bitgrid.get(x, y);
+
             if flag.has_any_neighbor() {
                 [Direction::N, Direction::S, Direction::W, Direction::E]
                     .iter()
@@ -263,7 +268,12 @@ fn step(state: State) -> Option<State> {
                     .find(|dir| !flag.has_neighbor_dir(*dir))
                     .map(|dir| {
                         let (xx, yy) = dir.move_coords(x, y);
-                        (dir, (xx, yy), pack((xx, yy)))
+                        if proposals_grid1.get(xx, yy).is_set() {
+                            proposals_grid2.get_mut(xx, yy).set();
+                        } else {
+                            proposals_grid1.get_mut(xx, yy).set();
+                        }
+                        ((xx, yy), dir)
                     })
             } else {
                 None
@@ -271,34 +281,29 @@ fn step(state: State) -> Option<State> {
         })
         .collect();
 
-    let proposal_counts = proposals
-        .iter()
-        .flatten()
-        .map(|(_, _, p)| p)
-        .copied()
-        .counts();
-
-    if proposal_counts.is_empty() {
+    if proposals.iter().all(Option::is_none) {
         None
     } else {
-        let mut bitgrid = state.bitgrid;
-        let poss = state
-            .poss
-            .into_iter()
-            .zip(proposals)
-            .map(|(orig @ (ox, oy), prop)| match prop {
-                Some((dir, dest, packed_dest)) if proposal_counts[&packed_dest] == 1 => {
+        let State {
+            mut bitgrid,
+            mut poss,
+            first_dir,
+        } = state;
+
+        for (prop, pos) in proposals.into_iter().zip(poss.iter_mut()) {
+            if let Some((dest @ (xx, yy), dir)) = prop {
+                if proposals_grid1.get(xx, yy).is_set() && !proposals_grid2.get(xx, yy).is_set() {
+                    let (ox, oy) = *pos;
+                    *pos = dest;
                     bitgrid.get_mut(ox, oy).move_bit(dir);
-                    dest
                 }
-                _ => orig,
-            })
-            .collect();
+            }
+        }
 
         Some(State {
             bitgrid,
             poss,
-            first_dir: (state.first_dir + 1) % 4,
+            first_dir: (first_dir + 1) % 4,
         })
     }
 }
