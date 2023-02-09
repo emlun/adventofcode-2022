@@ -6,15 +6,15 @@ use std::path::PathBuf;
 pub type Solution = (String, String);
 
 pub fn day_input_filename(day: u8) -> PathBuf {
-    let padded_day = format!("{:02}", day);
-    Path::new("inputs").join(format!("day{}.in", padded_day))
+    let padded_day = format!("{day:02}");
+    Path::new("inputs").join(format!("day{padded_day}.in"))
 }
 
 pub fn get_file_lines(path: &Path) -> Result<Vec<String>, std::io::Error> {
     if path == Path::new("-") {
         read_lines(std::io::stdin())
     } else {
-        read_lines(File::open(path).unwrap_or_else(|_| panic!("Input file not found: {:?}", path)))
+        read_lines(File::open(path).unwrap_or_else(|_| panic!("Input file not found: {path:?}")))
     }
 }
 
