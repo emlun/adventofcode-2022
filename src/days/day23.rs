@@ -178,18 +178,22 @@ mod bitgrid {
                 *neighbor ^= diff_e >> SHIFT_W_I_TO_E_O;
             }
 
-            if is_s && is_w {
-                let neighbor = self.grid.get_cell_mut(self.cellx - 1, self.celly - 1);
-                *neighbor ^= (diff_s & diff_w) << SHIFT_SW_I_TO_NE_O;
-            } else if is_s && is_e {
-                let neighbor = self.grid.get_cell_mut(self.cellx + 1, self.celly - 1);
-                *neighbor ^= (diff_s & diff_e) << SHIFT_SE_I_TO_NW_O;
-            } else if is_n && is_w {
-                let neighbor = self.grid.get_cell_mut(self.cellx - 1, self.celly + 1);
-                *neighbor ^= (diff_n & diff_w) >> SHIFT_SE_I_TO_NW_O;
-            } else if is_n && is_e {
-                let neighbor = self.grid.get_cell_mut(self.cellx + 1, self.celly + 1);
-                *neighbor ^= (diff_n & diff_e) >> SHIFT_SW_I_TO_NE_O;
+            if is_s {
+                if is_w {
+                    let neighbor = self.grid.get_cell_mut(self.cellx - 1, self.celly - 1);
+                    *neighbor ^= (diff_s & diff_w) << SHIFT_SW_I_TO_NE_O;
+                } else if is_e {
+                    let neighbor = self.grid.get_cell_mut(self.cellx + 1, self.celly - 1);
+                    *neighbor ^= (diff_s & diff_e) << SHIFT_SE_I_TO_NW_O;
+                }
+            } else if is_n {
+                if is_w {
+                    let neighbor = self.grid.get_cell_mut(self.cellx - 1, self.celly + 1);
+                    *neighbor ^= (diff_n & diff_w) >> SHIFT_SE_I_TO_NW_O;
+                } else if is_e {
+                    let neighbor = self.grid.get_cell_mut(self.cellx + 1, self.celly + 1);
+                    *neighbor ^= (diff_n & diff_e) >> SHIFT_SW_I_TO_NE_O;
+                }
             }
         }
     }
