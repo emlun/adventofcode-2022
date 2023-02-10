@@ -87,10 +87,10 @@ where
 
 fn recipe_is_relevant(state: &State, recipe: &Recipe, blueprint: &Blueprint) -> bool {
     recipe.output == 3
-        || !blueprint.recipes.iter().all(|rcp| {
-            rcp.ingredients[recipe.output] <= state.resources[recipe.output]
-                && rcp.ingredients[recipe.output] <= state.robots[recipe.output]
-        })
+        || blueprint
+            .recipes
+            .iter()
+            .any(|rcp| rcp.ingredients[recipe.output] > state.robots[recipe.output])
 }
 
 fn astar(blueprint: &Blueprint, max_t: usize) -> u32 {
