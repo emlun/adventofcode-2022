@@ -1,7 +1,15 @@
 use crate::common::Solution;
 use crate::search::astar;
 
-type Point = (u8, u8);
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
+struct Point(u8, u8);
+
+impl Point {
+    fn abs_diff(self, Point(ox, oy): Self) -> u8 {
+        let Point(sx, sy) = self;
+        sx.abs_diff(ox) + sy.abs_diff(oy)
+    }
+}
 
 #[derive(Default, Eq, PartialEq)]
 struct Game {
@@ -54,7 +62,7 @@ impl<'game> State<'game> {
         }
     }
 
-    fn has_blizzard(&self, (r, c): Point) -> bool {
+    fn has_blizzard(&self, Point(r, c): Point) -> bool {
         let ri = usize::from(r - self.game.minir);
         let ci = usize::from(c - self.game.minic);
         let hsub = self.game.inner_h - 1;
@@ -84,21 +92,17 @@ impl<'a> astar::State for State<'a> {
     }
 
     fn estimate(&self) -> usize {
-        let (r, c) = self.pos;
-        let (gr, gc) = self.game.goal;
-        let (sr, sc) = self.game.start;
-
         self.t
             + usize::from(self.trips_left) * usize::from(self.game.trip_len)
             + usize::from(if self.trips_left % 2 == 0 {
-                r.abs_diff(gr) + c.abs_diff(gc)
+                self.pos.abs_diff(self.game.goal)
             } else {
-                r.abs_diff(sr) + c.abs_diff(sc)
+                self.pos.abs_diff(self.game.start)
             })
     }
 
     fn generate_moves(self) -> Self::NewStates {
-        let (r, c) = self.pos;
+        let Point(r, c) = self.pos;
         Box::new(
             [
                 Some((r, c)),
@@ -110,8 +114,7 @@ impl<'a> astar::State for State<'a> {
             .into_iter()
             .flat_map(move |rrcc| {
                 if let Some((rr, cc)) = rrcc {
-                    let pos = (rr, cc);
-                    Some(self.move_to(pos)).filter(|st| {
+                    Some(self.move_to(Point(rr, cc))).filter(|st| {
                         st.pos == st.game.start
                             || st.pos == st.game.goal
                             || (st.game.minir..st.game.maxxr).contains(&rr)
@@ -168,13 +171,13 @@ pub fn solve(lines: &[String]) -> Solution {
 
                 if r == 0 {
                     if chr == '.' {
-                        game.start = (r, c);
+                        game.start = Point(r, c);
                     } else {
                         assert_eq!(chr, '#');
                     }
                 } else if r == h - 1 {
                     if chr == '.' {
-                        game.goal = (r, c);
+                        game.goal = Point(r, c);
                     } else {
                         assert_eq!(chr, '#');
                     }
@@ -209,11 +212,7 @@ pub fn solve(lines: &[String]) -> Solution {
         usize::from(game.maxxr - game.minir),
         usize::from(game.maxxc - game.minic),
     );
-    game.trip_len = {
-        let (gr, gc) = game.goal;
-        let (sr, sc) = game.start;
-        sr.abs_diff(gr) + sc.abs_diff(gc)
-    };
+    game.trip_len = game.goal.abs_diff(game.start);
 
     (solve_a(&game).to_string(), solve_b(&game).to_string())
 }
