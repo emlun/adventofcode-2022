@@ -1,5 +1,4 @@
 use std::collections::BinaryHeap;
-use std::collections::HashMap;
 
 use crate::common::Solution;
 
@@ -123,7 +122,6 @@ fn time_to_afford_recipe(state: &State, recipe: &Recipe) -> Option<u32> {
 
 fn astar(blueprint: &Blueprint, max_t: u32) -> u32 {
     let mut queue: BinaryHeap<MaxPotentialWrapper> = BinaryHeap::new();
-    let mut visited: HashMap<u32, HashMap<Resources, Resources>> = HashMap::new();
     let mut best = 0;
 
     let init_state = State {
@@ -140,38 +138,13 @@ fn astar(blueprint: &Blueprint, max_t: u32) -> u32 {
     {
         if max_potential <= best {
             return best;
-        } else if visited
-            .get(&state.t)
-            .and_then(|v| v.get(&state.robots))
-            .map(|v| {
-                v.iter()
-                    .zip(state.resources.iter())
-                    .all(|(vr, sr)| sr >= vr)
-                    || v.iter().zip(state.resources.iter()).any(|(vr, sr)| sr > vr)
-            })
-            .unwrap_or(true)
-        {
+        } else {
             for next_state in generate_moves(&state, blueprint) {
-                if visited
-                    .get(&next_state.t)
-                    .and_then(|v| v.get(&next_state.robots))
-                    .map(|v| {
-                        v.iter()
-                            .zip(next_state.resources.iter())
-                            .any(|(vr, sr)| sr > vr)
-                    })
-                    .unwrap_or(true)
-                {
-                    let next_state_final_geodes =
-                        next_state.resources[3] + next_state.robots[3] * next_state.t;
-                    best = std::cmp::max(best, next_state_final_geodes);
-                    visited
-                        .entry(next_state.t)
-                        .or_default()
-                        .insert(next_state.robots, next_state.resources);
-                    if next_state.t > 0 {
-                        queue.push(next_state.into());
-                    }
+                let next_state_final_geodes =
+                    next_state.resources[3] + next_state.robots[3] * next_state.t;
+                best = std::cmp::max(best, next_state_final_geodes);
+                if next_state.t > 0 {
+                    queue.push(next_state.into());
                 }
             }
         }
