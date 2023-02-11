@@ -19,28 +19,37 @@ struct Recipe {
 
 #[derive(Debug, Eq, PartialEq)]
 struct State {
-    max_t: usize,
     t: usize,
     resources: Resources,
     robots: Resources,
 }
 
-impl State {
-    fn max_potential(&self) -> u32 {
-        let dt = u32::try_from(self.max_t - self.t).unwrap();
-        self.resources[3] + self.robots[3] * dt + (dt * (dt - 1)) / 2
+#[derive(Eq, PartialEq)]
+struct MaxPotentialWrapper {
+    state: State,
+    max_potential: u32,
+}
+
+impl From<(State, usize)> for MaxPotentialWrapper {
+    fn from((state, max_t): (State, usize)) -> Self {
+        let dt = u32::try_from(max_t - state.t).unwrap();
+        let max_potential = state.resources[3] + state.robots[3] * dt + (dt * (dt - 1)) / 2;
+        Self {
+            state,
+            max_potential,
+        }
     }
 }
 
-impl PartialOrd for State {
+impl PartialOrd for MaxPotentialWrapper {
     fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(rhs))
     }
 }
 
-impl Ord for State {
+impl Ord for MaxPotentialWrapper {
     fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
-        (self.max_potential(), self.robots[3]).cmp(&(rhs.max_potential(), rhs.robots[3]))
+        (self.max_potential, self.state.robots[3]).cmp(&(rhs.max_potential, rhs.state.robots[3]))
     }
 }
 
@@ -65,7 +74,6 @@ where
         .map(|recipe| Some((recipe.output, &recipe.ingredients)))
         .chain(Some(None))
         .map(|make_robot| State {
-            max_t: state.max_t,
             t: state.t + 1,
             resources: {
                 let mut res = state.resources;
@@ -94,20 +102,23 @@ fn recipe_is_relevant(state: &State, recipe: &Recipe, blueprint: &Blueprint) -> 
 }
 
 fn astar(blueprint: &Blueprint, max_t: usize) -> u32 {
-    let mut queue: BinaryHeap<State> = BinaryHeap::new();
+    let mut queue: BinaryHeap<MaxPotentialWrapper> = BinaryHeap::new();
     let mut visited: HashMap<usize, HashMap<Resources, Resources>> = HashMap::new();
     let mut best = 0;
 
     let init_state = State {
-        max_t,
         t: 0,
         resources: [0; 4],
         robots: [1, 0, 0, 0],
     };
-    queue.push(init_state);
+    queue.push((init_state, max_t).into());
 
-    while let Some(state) = queue.pop() {
-        if state.max_potential() <= best {
+    while let Some(MaxPotentialWrapper {
+        state,
+        max_potential,
+    }) = queue.pop()
+    {
+        if max_potential <= best {
             return best;
         } else if visited
             .get(&state.t)
@@ -137,7 +148,7 @@ fn astar(blueprint: &Blueprint, max_t: usize) -> u32 {
                         .or_default()
                         .insert(next_state.robots, next_state.resources);
                     if next_state.t < max_t {
-                        queue.push(next_state);
+                        queue.push((next_state, max_t).into());
                     }
                 }
             }
