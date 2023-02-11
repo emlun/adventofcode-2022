@@ -71,8 +71,8 @@ where
                     t: state.t - wait_t - 1,
                     resources: {
                         let mut res = state.resources;
-                        for i in 0..res.len() {
-                            res[i] = (res[i] + state.robots[i] * wait_t - recipe.ingredients[i])
+                        for (i, res) in res.iter_mut().enumerate() {
+                            *res = (*res + state.robots[i] * wait_t - recipe.ingredients[i])
                                 + state.robots[i];
                         }
                         res
