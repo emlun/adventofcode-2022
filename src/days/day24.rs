@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::common::Solution;
 use crate::search::astar;
 
@@ -75,34 +77,63 @@ impl<'game> State<'game> {
     }
 }
 
-impl<'a> astar::State for State<'a> {
+#[derive(Eq, PartialEq)]
+struct AstarState<'game> {
+    state: State<'game>,
+    dup_key: usize,
+    estimate: usize,
+}
+
+impl<'game> From<State<'game>> for AstarState<'game> {
+    fn from(state: State<'game>) -> Self {
+        let dup_key = ((state.t % state.game.period) << (3 * 8))
+            | (state.trips_left << (2 * 8))
+            | (state.pos.0 << 8)
+            | (state.pos.1);
+
+        let estimate = state.t
+            + state.trips_left * state.game.trip_len
+            + if state.trips_left % 2 == 0 {
+                state.pos.abs_diff(state.game.goal)
+            } else {
+                state.pos.abs_diff(state.game.start)
+            };
+
+        Self {
+            dup_key,
+            estimate,
+            state,
+        }
+    }
+}
+
+impl<'game> Deref for AstarState<'game> {
+    type Target = State<'game>;
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
+}
+
+impl<'a> astar::State for AstarState<'a> {
     type DuplicationKey = usize;
     type Value = usize;
     type NewStates = Box<dyn Iterator<Item = Self> + 'a>;
 
     fn duplication_key(&self) -> Self::DuplicationKey {
-        ((self.t % self.game.period) << (3 * 8))
-            | (self.trips_left << (2 * 8))
-            | (self.pos.0 << 8)
-            | (self.pos.1)
+        self.dup_key
     }
 
     fn value(&self) -> Self::Value {
-        self.t
+        self.state.t
     }
 
     fn estimate(&self) -> usize {
-        self.t
-            + self.trips_left * self.game.trip_len
-            + if self.trips_left % 2 == 0 {
-                self.pos.abs_diff(self.game.goal)
-            } else {
-                self.pos.abs_diff(self.game.start)
-            }
+        self.estimate
     }
 
     fn generate_moves(self) -> Self::NewStates {
         let Point(r, c) = self.pos;
+        let game = self.game;
         Box::new(
             [
                 Some((r, c)),
@@ -115,13 +146,13 @@ impl<'a> astar::State for State<'a> {
             .flatten()
             .map(|(rr, cc)| Point(rr, cc))
             .filter(|pos @ Point(rr, cc)| {
-                *pos == self.game.start
-                    || *pos == self.game.goal
-                    || ((self.game.minir..self.game.maxxr).contains(&rr)
-                        && (self.game.minic..self.game.maxxc).contains(&cc))
+                *pos == game.start
+                    || *pos == game.goal
+                    || ((game.minir..game.maxxr).contains(&rr)
+                        && (game.minic..game.maxxc).contains(&cc))
             })
-            .map(move |pos| self.move_to(pos))
-            .filter(|state| {
+            .map(move |pos| self.move_to(pos).into())
+            .filter(|state: &Self| {
                 state.pos == state.game.start
                     || state.pos == state.game.goal
                     || !state.has_blizzard(state.pos)
@@ -144,11 +175,15 @@ const fn lcm(a: usize, b: usize) -> usize {
 }
 
 fn solve_a(game: &Game) -> usize {
-    astar::astar(State::new(game, 0)).unwrap().t
+    astar::astar(AstarState::from(State::new(game, 0)))
+        .unwrap()
+        .t
 }
 
 fn solve_b(game: &Game) -> usize {
-    astar::astar(State::new(game, 2)).unwrap().t
+    astar::astar(AstarState::from(State::new(game, 2)))
+        .unwrap()
+        .t
 }
 
 pub fn solve(lines: &[String]) -> Solution {
