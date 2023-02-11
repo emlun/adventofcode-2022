@@ -112,18 +112,15 @@ impl<'a> astar::State for State<'a> {
                 c.checked_sub(1).map(|c| (r, c)),
             ]
             .into_iter()
-            .flat_map(move |rrcc| {
-                if let Some((rr, cc)) = rrcc {
-                    Some(self.move_to(Point(rr, cc))).filter(|st| {
-                        st.pos == st.game.start
-                            || st.pos == st.game.goal
-                            || ((st.game.minir..st.game.maxxr).contains(&rr)
-                                && (st.game.minic..st.game.maxxc).contains(&cc))
-                    })
-                } else {
-                    None
-                }
+            .flatten()
+            .map(|(rr, cc)| Point(rr, cc))
+            .filter(|pos @ Point(rr, cc)| {
+                *pos == self.game.start
+                    || *pos == self.game.goal
+                    || ((self.game.minir..self.game.maxxr).contains(&rr)
+                        && (self.game.minic..self.game.maxxc).contains(&cc))
             })
+            .map(move |pos| self.move_to(pos))
             .filter(|state| {
                 state.pos == state.game.start
                     || state.pos == state.game.goal
