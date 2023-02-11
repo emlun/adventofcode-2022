@@ -117,8 +117,8 @@ impl<'a> astar::State for State<'a> {
                     Some(self.move_to(Point(rr, cc))).filter(|st| {
                         st.pos == st.game.start
                             || st.pos == st.game.goal
-                            || (st.game.minir..st.game.maxxr).contains(&rr)
-                                && (st.game.minic..st.game.maxxc).contains(&cc)
+                            || ((st.game.minir..st.game.maxxr).contains(&rr)
+                                && (st.game.minic..st.game.maxxc).contains(&cc))
                     })
                 } else {
                     None
