@@ -7,6 +7,7 @@ type Point = (u8, u8);
 struct Game {
     start: Point,
     goal: Point,
+    trip_len: u8,
     minic: u8,
     maxxc: u8,
     minir: u8,
@@ -86,10 +87,9 @@ impl<'a> astar::State for State<'a> {
         let (r, c) = self.pos;
         let (gr, gc) = self.game.goal;
         let (sr, sc) = self.game.start;
-        let trip_len = sr.abs_diff(gr) + sc.abs_diff(gc);
 
         self.t
-            + usize::from(self.trips_left) * usize::from(trip_len)
+            + usize::from(self.trips_left) * usize::from(self.game.trip_len)
             + usize::from(if self.trips_left % 2 == 0 {
                 r.abs_diff(gr) + c.abs_diff(gc)
             } else {
@@ -209,6 +209,11 @@ pub fn solve(lines: &[String]) -> Solution {
         usize::from(game.maxxr - game.minir),
         usize::from(game.maxxc - game.minic),
     );
+    game.trip_len = {
+        let (gr, gc) = game.goal;
+        let (sr, sc) = game.start;
+        sr.abs_diff(gr) + sc.abs_diff(gc)
+    };
 
     (solve_a(&game).to_string(), solve_b(&game).to_string())
 }
