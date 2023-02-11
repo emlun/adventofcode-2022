@@ -54,13 +54,7 @@ where
     blueprint
         .recipes
         .iter()
-        .filter(|recipe| {
-            recipe.output == 3
-                || !blueprint.recipes.iter().all(|rcp| {
-                    rcp.ingredients[recipe.output] <= state.resources[recipe.output]
-                        && rcp.ingredients[recipe.output] <= state.robots[recipe.output]
-                })
-        })
+        .filter(|recipe| recipe_is_relevant(state, recipe, blueprint))
         .filter(|recipe| {
             recipe
                 .ingredients
@@ -88,6 +82,14 @@ where
                 }
                 rob
             },
+        })
+}
+
+fn recipe_is_relevant(state: &State, recipe: &Recipe, blueprint: &Blueprint) -> bool {
+    recipe.output == 3
+        || !blueprint.recipes.iter().all(|rcp| {
+            rcp.ingredients[recipe.output] <= state.resources[recipe.output]
+                && rcp.ingredients[recipe.output] <= state.robots[recipe.output]
         })
 }
 
