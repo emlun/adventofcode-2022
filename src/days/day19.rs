@@ -7,7 +7,7 @@ type Resources = [u32; 4];
 
 #[derive(Debug)]
 struct Blueprint {
-    id: usize,
+    id: u32,
     recipes: [Recipe; 4],
 }
 
@@ -19,7 +19,7 @@ struct Recipe {
 
 #[derive(Debug, Eq, PartialEq)]
 struct State {
-    t: usize,
+    t: u32,
     resources: Resources,
     robots: Resources,
 }
@@ -30,9 +30,9 @@ struct MaxPotentialWrapper {
     max_potential: u32,
 }
 
-impl From<(State, usize)> for MaxPotentialWrapper {
-    fn from((state, max_t): (State, usize)) -> Self {
-        let dt = u32::try_from(max_t - state.t).unwrap();
+impl From<State> for MaxPotentialWrapper {
+    fn from(state: State) -> Self {
+        let dt = state.t;
         let max_potential = state.resources[3] + state.robots[3] * dt + (dt * (dt - 1)) / 2;
         Self {
             state,
@@ -74,7 +74,7 @@ where
         .map(|recipe| Some((recipe.output, &recipe.ingredients)))
         .chain(Some(None))
         .map(|make_robot| State {
-            t: state.t + 1,
+            t: state.t - 1,
             resources: {
                 let mut res = state.resources;
                 for i in 0..res.len() {
@@ -101,17 +101,17 @@ fn recipe_is_relevant(state: &State, recipe: &Recipe, blueprint: &Blueprint) -> 
             .any(|rcp| rcp.ingredients[recipe.output] > state.robots[recipe.output])
 }
 
-fn astar(blueprint: &Blueprint, max_t: usize) -> u32 {
+fn astar(blueprint: &Blueprint, max_t: u32) -> u32 {
     let mut queue: BinaryHeap<MaxPotentialWrapper> = BinaryHeap::new();
-    let mut visited: HashMap<usize, HashMap<Resources, Resources>> = HashMap::new();
+    let mut visited: HashMap<u32, HashMap<Resources, Resources>> = HashMap::new();
     let mut best = 0;
 
     let init_state = State {
-        t: 0,
+        t: max_t,
         resources: [0; 4],
         robots: [1, 0, 0, 0],
     };
-    queue.push((init_state, max_t).into());
+    queue.push(init_state.into());
 
     while let Some(MaxPotentialWrapper {
         state,
@@ -142,15 +142,15 @@ fn astar(blueprint: &Blueprint, max_t: usize) -> u32 {
                     })
                     .unwrap_or(true)
                 {
-                    let next_state_final_geodes = next_state.resources[3]
-                        + next_state.robots[3] * u32::try_from(max_t - next_state.t).unwrap();
+                    let next_state_final_geodes =
+                        next_state.resources[3] + next_state.robots[3] * next_state.t;
                     best = std::cmp::max(best, next_state_final_geodes);
                     visited
                         .entry(next_state.t)
                         .or_default()
                         .insert(next_state.robots, next_state.resources);
-                    if next_state.t < max_t {
-                        queue.push((next_state, max_t).into());
+                    if next_state.t > 0 {
+                        queue.push(next_state.into());
                     }
                 }
             }
@@ -159,14 +159,11 @@ fn astar(blueprint: &Blueprint, max_t: usize) -> u32 {
     best
 }
 
-fn solve_a(blueprints: &[Blueprint], max_t: usize) -> usize {
-    blueprints
-        .iter()
-        .map(|b| b.id * usize::try_from(astar(b, max_t)).unwrap())
-        .sum()
+fn solve_a(blueprints: &[Blueprint], max_t: u32) -> u32 {
+    blueprints.iter().map(|b| b.id * astar(b, max_t)).sum()
 }
 
-fn solve_b(blueprints: &[Blueprint], max_t: usize) -> u32 {
+fn solve_b(blueprints: &[Blueprint], max_t: u32) -> u32 {
     blueprints.iter().take(3).map(|b| astar(b, max_t)).product()
 }
 
