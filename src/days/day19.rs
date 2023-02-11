@@ -64,32 +64,29 @@ where
         .recipes
         .iter()
         .filter(|recipe| recipe_is_relevant(state, recipe, blueprint))
-        .filter(|recipe| {
-            recipe
-                .ingredients
-                .iter()
-                .enumerate()
-                .all(|(ingredient, qty)| state.resources[ingredient] >= *qty)
-        })
-        .map(|recipe| Some((recipe.output, &recipe.ingredients)))
-        .chain(Some(None))
-        .map(|make_robot| State {
-            t: state.t - 1,
-            resources: {
-                let mut res = state.resources;
-                for i in 0..res.len() {
-                    res[i] =
-                        res[i] + state.robots[i] - make_robot.map(|(_, cost)| cost[i]).unwrap_or(0);
-                }
-                res
-            },
-            robots: {
-                let mut rob = state.robots;
-                if let Some((typ, _)) = make_robot {
-                    rob[typ] += 1;
-                }
-                rob
-            },
+        .flat_map(|recipe| time_to_afford_recipe(state, recipe).map(|wait_t| (recipe, wait_t)))
+        .flat_map(|(recipe, wait_t)| {
+            let wait_t = std::cmp::min(wait_t, state.t);
+            if wait_t < state.t {
+                Some(State {
+                    t: state.t - wait_t - 1,
+                    resources: {
+                        let mut res = state.resources;
+                        for i in 0..res.len() {
+                            res[i] = (res[i] + state.robots[i] * wait_t - recipe.ingredients[i])
+                                + state.robots[i];
+                        }
+                        res
+                    },
+                    robots: {
+                        let mut rob = state.robots;
+                        rob[recipe.output] += 1;
+                        rob
+                    },
+                })
+            } else {
+                None
+            }
         })
 }
 
@@ -99,6 +96,29 @@ fn recipe_is_relevant(state: &State, recipe: &Recipe, blueprint: &Blueprint) -> 
             .recipes
             .iter()
             .any(|rcp| rcp.ingredients[recipe.output] > state.robots[recipe.output])
+}
+
+fn time_to_afford_recipe(state: &State, recipe: &Recipe) -> Option<u32> {
+    recipe
+        .ingredients
+        .iter()
+        .enumerate()
+        .map(|(res_type, cost)| {
+            let deficit = cost.saturating_sub(state.resources[res_type]);
+            if deficit == 0 {
+                Some(0)
+            } else {
+                let rob = state.robots[res_type];
+                if rob > 0 {
+                    Some(deficit / rob + std::cmp::min(1, deficit % rob))
+                } else {
+                    None
+                }
+            }
+        })
+        .fold(Some(0), |max_t, next| {
+            max_t.and_then(|max_t| next.map(|wait_t| std::cmp::max(max_t, wait_t)))
+        })
 }
 
 fn astar(blueprint: &Blueprint, max_t: u32) -> u32 {
