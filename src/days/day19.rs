@@ -142,7 +142,9 @@ fn astar(blueprint: &Blueprint, max_t: usize) -> u32 {
                     })
                     .unwrap_or(true)
                 {
-                    best = std::cmp::max(best, next_state.resources[3]);
+                    let next_state_final_geodes = next_state.resources[3]
+                        + next_state.robots[3] * u32::try_from(max_t - next_state.t).unwrap();
+                    best = std::cmp::max(best, next_state_final_geodes);
                     visited
                         .entry(next_state.t)
                         .or_default()
