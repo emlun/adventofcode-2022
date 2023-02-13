@@ -1,6 +1,6 @@
 use crate::common::Solution;
 
-#[derive(Default, Eq, PartialEq)]
+#[derive(Default)]
 struct Game {
     start_inner_c: usize,
     goal_inner_c: usize,
@@ -13,26 +13,21 @@ struct Game {
 }
 
 impl Game {
-    fn blizzard_mask(&self, t: usize, r: usize) -> u128 {
-        if r > 0 && r < (self.inner_h + 1) {
-            let r = r - 1;
-            let neg1 = self.inner_h - 1;
-            let tc = t % self.inner_w;
-            let tr = t % self.inner_h;
+    fn blizzard_mask(&self, t: usize, inner_r: usize) -> u128 {
+        let neg1 = self.inner_h - 1;
+        let tc = t % self.inner_w;
+        let tr = t % self.inner_h;
 
-            let blizzard_up = self.blizzards_up[(r + tr) % self.inner_h];
-            let blizzard_down = self.blizzards_down[(r + neg1 * tr) % self.inner_h];
+        let blizzard_up = self.blizzards_up[(inner_r + tr) % self.inner_h];
+        let blizzard_down = self.blizzards_down[(inner_r + neg1 * tr) % self.inner_h];
 
-            let blizzard_left = (self.blizzards_left[r] >> tc)
-                | ((self.blizzards_left[r] & ((1 << tc) - 1)) << (self.inner_w - tc));
+        let blizzard_left = (self.blizzards_left[inner_r] >> tc)
+            | ((self.blizzards_left[inner_r] & ((1 << tc) - 1)) << (self.inner_w - tc));
 
-            let blizzard_right = (self.blizzards_right[r] << tc)
-                | ((self.blizzards_right[r] >> (self.inner_w - tc)) & ((1 << tc) - 1));
+        let blizzard_right = (self.blizzards_right[inner_r] << tc)
+            | ((self.blizzards_right[inner_r] >> (self.inner_w - tc)) & ((1 << tc) - 1));
 
-            blizzard_up | blizzard_down | blizzard_left | blizzard_right
-        } else {
-            0
-        }
+        blizzard_up | blizzard_down | blizzard_left | blizzard_right
     }
 }
 
@@ -44,33 +39,37 @@ fn search(game: &Game, mut trips_left: usize) -> usize {
     let inbounds_mask: u128 = (1 << game.inner_w) - 1;
     let inbounds_mask_rmax: u128 = 1 << game.goal_inner_c;
 
+    let mut t = 0;
     let mut pos: Vec<u128> = vec![0; h];
     pos[0] = inbounds_mask_r0;
-    let mut t = 0;
+    let mut prev_pos: Vec<u128>;
 
     loop {
-        let prev_pos = pos.clone();
+        prev_pos = pos.clone();
 
-        for r in 0..h {
+        {
+            let r = 0;
+            let moved_up = prev_pos[r + 1];
+            pos[r] = inbounds_mask_r0 & (prev_pos[r] | moved_up);
+        }
+
+        for r in 1..(h - 1) {
             let moved_left = prev_pos[r] >> 1;
             let moved_right = prev_pos[r] << 1;
 
-            let moved_down = if r > 0 { prev_pos[r - 1] } else { 0 };
-            let moved_up = if r < h - 1 { prev_pos[r + 1] } else { 0 };
+            let moved_down = prev_pos[r - 1];
+            let moved_up = prev_pos[r + 1];
 
-            let inbounds_mask = if r == 0 {
-                inbounds_mask_r0
-            } else if r == h - 1 {
-                inbounds_mask_rmax
-            } else {
-                inbounds_mask
-            };
+            let blizzard_mask = game.blizzard_mask(t, r - 1);
 
-            let blizzard_mask = game.blizzard_mask(t, r);
+            pos[r] = (inbounds_mask ^ blizzard_mask)
+                & (prev_pos[r] | moved_left | moved_right | moved_down | moved_up);
+        }
 
-            pos[r] = inbounds_mask
-                & (prev_pos[r] | moved_left | moved_right | moved_down | moved_up)
-                & !blizzard_mask;
+        {
+            let r = h - 1;
+            let moved_down = prev_pos[r - 1];
+            pos[r] = inbounds_mask_rmax & (prev_pos[r] | moved_down);
         }
 
         if (trips_left % 2 == 0 && (pos[h - 1] == inbounds_mask_rmax))
