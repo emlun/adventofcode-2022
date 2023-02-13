@@ -1,232 +1,154 @@
-use std::ops::Deref;
-
 use crate::common::Solution;
-use crate::search::astar;
-
-#[derive(Clone, Copy, Default, Eq, PartialEq)]
-struct Point(usize, usize);
-
-impl Point {
-    fn abs_diff(self, Point(ox, oy): Self) -> usize {
-        let Point(sx, sy) = self;
-        sx.abs_diff(ox) + sy.abs_diff(oy)
-    }
-}
 
 #[derive(Default, Eq, PartialEq)]
 struct Game {
-    start: Point,
-    goal: Point,
-    trip_len: usize,
-    minic: usize,
-    maxxc: usize,
-    minir: usize,
-    maxxr: usize,
+    start_inner_c: usize,
+    goal_inner_c: usize,
     inner_w: usize,
     inner_h: usize,
     blizzards_up: Vec<u128>,
     blizzards_right: Vec<u128>,
     blizzards_down: Vec<u128>,
     blizzards_left: Vec<u128>,
-    period: usize,
 }
 
-#[derive(Eq, PartialEq)]
-struct State<'game> {
-    game: &'game Game,
-    t: usize,
-    pos: Point,
-    trips_left: usize,
-}
+impl Game {
+    fn blizzard_mask(&self, t: usize, r: usize) -> u128 {
+        if r > 0 && r < (self.inner_h + 1) {
+            let r = r - 1;
+            let neg1 = self.inner_h - 1;
+            let tc = t % self.inner_w;
+            let tr = t % self.inner_h;
 
-impl<'game> State<'game> {
-    fn new(game: &'game Game, trips_left: usize) -> Self {
-        Self {
-            game,
-            t: 0,
-            pos: game.start,
-            trips_left,
+            let blizzard_up = self.blizzards_up[(r + tr) % self.inner_h];
+            let blizzard_down = self.blizzards_down[(r + neg1 * tr) % self.inner_h];
+
+            let blizzard_left = (self.blizzards_left[r] >> tc)
+                | ((self.blizzards_left[r] & ((1 << tc) - 1)) << (self.inner_w - tc));
+
+            let blizzard_right = (self.blizzards_right[r] << tc)
+                | ((self.blizzards_right[r] >> (self.inner_w - tc)) & ((1 << tc) - 1));
+
+            blizzard_up | blizzard_down | blizzard_left | blizzard_right
+        } else {
+            0
         }
     }
-
-    fn move_to(&self, pos: Point) -> Self {
-        State {
-            game: self.game,
-            t: self.t + 1,
-            pos,
-            trips_left: if (self.trips_left % 2 == 0 && pos == self.game.goal)
-                || (self.trips_left % 2 == 1 && pos == self.game.start)
-            {
-                self.trips_left.saturating_sub(1)
-            } else {
-                self.trips_left
-            },
-        }
-    }
-
-    fn has_blizzard(&self, Point(r, c): Point) -> bool {
-        let ri = r - self.game.minir;
-        let ci = c - self.game.minic;
-        let hsub = self.game.inner_h - 1;
-        let wsub = self.game.inner_w - 1;
-
-        (self.game.blizzards_up[(self.t + ri) % self.game.inner_h] & (1 << c) != 0)
-            || (self.game.blizzards_down[(hsub * self.t + ri) % self.game.inner_h] & (1 << c) != 0)
-            || (self.game.blizzards_left[(self.t + ci) % self.game.inner_w] & (1 << r) != 0)
-            || (self.game.blizzards_right[(wsub * self.t + ci) % self.game.inner_w] & (1 << r) != 0)
-    }
 }
 
-#[derive(Eq, PartialEq)]
-struct AstarState<'game> {
-    state: State<'game>,
-    dup_key: usize,
-    estimate: usize,
-}
+// Solution method by @Hadopire on GitHub
+// https://github.com/hadopire/adventofcode_2022/blob/8c4526dd8eb14648a6c31b172f43d32c2a3d301f/d24.odin
+fn search(game: &Game, mut trips_left: usize) -> usize {
+    let h = game.inner_h + 2;
+    let inbounds_mask_r0: u128 = 1 << game.start_inner_c;
+    let inbounds_mask: u128 = (1 << game.inner_w) - 1;
+    let inbounds_mask_rmax: u128 = 1 << game.goal_inner_c;
 
-impl<'game> From<State<'game>> for AstarState<'game> {
-    fn from(state: State<'game>) -> Self {
-        let dup_key = ((state.t % state.game.period) << (3 * 8))
-            | (state.trips_left << (2 * 8))
-            | (state.pos.0 << 8)
-            | (state.pos.1);
+    let mut pos: Vec<u128> = vec![0; h];
+    pos[0] = inbounds_mask_r0;
+    let mut t = 0;
 
-        let estimate = state.t
-            + state.trips_left * state.game.trip_len
-            + if state.trips_left % 2 == 0 {
-                state.pos.abs_diff(state.game.goal)
+    loop {
+        let prev_pos = pos.clone();
+
+        for r in 0..h {
+            let moved_left = prev_pos[r] >> 1;
+            let moved_right = prev_pos[r] << 1;
+
+            let moved_down = if r > 0 { prev_pos[r - 1] } else { 0 };
+            let moved_up = if r < h - 1 { prev_pos[r + 1] } else { 0 };
+
+            let inbounds_mask = if r == 0 {
+                inbounds_mask_r0
+            } else if r == h - 1 {
+                inbounds_mask_rmax
             } else {
-                state.pos.abs_diff(state.game.start)
+                inbounds_mask
             };
 
-        Self {
-            dup_key,
-            estimate,
-            state,
+            let blizzard_mask = game.blizzard_mask(t, r);
+
+            pos[r] = inbounds_mask
+                & (prev_pos[r] | moved_left | moved_right | moved_down | moved_up)
+                & !blizzard_mask;
         }
+
+        if (trips_left % 2 == 0 && (pos[h - 1] == inbounds_mask_rmax))
+            || trips_left % 2 == 1 && (pos[0] == inbounds_mask_r0)
+        {
+            if trips_left == 0 {
+                return t;
+            }
+
+            let reset_rs = if trips_left % 2 == 0 {
+                0..(h - 1)
+            } else {
+                1..h
+            };
+            for r in reset_rs {
+                pos[r] = 0;
+            }
+
+            trips_left -= 1;
+        }
+
+        t += 1;
     }
-}
-
-impl<'game> Deref for AstarState<'game> {
-    type Target = State<'game>;
-    fn deref(&self) -> &Self::Target {
-        &self.state
-    }
-}
-
-impl<'a> astar::State for AstarState<'a> {
-    type DuplicationKey = usize;
-    type Value = usize;
-    type NewStates = Box<dyn Iterator<Item = Self> + 'a>;
-
-    fn duplication_key(&self) -> Self::DuplicationKey {
-        self.dup_key
-    }
-
-    fn value(&self) -> Self::Value {
-        self.state.t
-    }
-
-    fn estimate(&self) -> usize {
-        self.estimate
-    }
-
-    fn generate_moves(self) -> Self::NewStates {
-        let Point(r, c) = self.pos;
-        let game = self.game;
-        Box::new(
-            [
-                Some((r, c)),
-                r.checked_sub(1).map(|r| (r, c)),
-                Some((r, c + 1)),
-                Some((r + 1, c)),
-                c.checked_sub(1).map(|c| (r, c)),
-            ]
-            .into_iter()
-            .flatten()
-            .map(|(rr, cc)| Point(rr, cc))
-            .filter(|pos @ Point(rr, cc)| {
-                *pos == game.start
-                    || *pos == game.goal
-                    || ((game.minir..game.maxxr).contains(&rr)
-                        && (game.minic..game.maxxc).contains(&cc))
-            })
-            .map(move |pos| self.move_to(pos).into())
-            .filter(|state: &Self| {
-                state.pos == state.game.start
-                    || state.pos == state.game.goal
-                    || !state.has_blizzard(state.pos)
-            }),
-        )
-    }
-}
-
-const fn gcd(a: usize, b: usize) -> usize {
-    if b == 0 {
-        a
-    } else {
-        gcd(b, a % b)
-    }
-}
-
-const fn lcm(a: usize, b: usize) -> usize {
-    let gcdab = gcd(a, b);
-    (a / gcdab) * b
 }
 
 fn solve_a(game: &Game) -> usize {
-    astar::astar(AstarState::from(State::new(game, 0)))
-        .unwrap()
-        .t
+    search(game, 0)
 }
 
 fn solve_b(game: &Game) -> usize {
-    astar::astar(AstarState::from(State::new(game, 2)))
-        .unwrap()
-        .t
+    search(game, 2)
 }
 
 pub fn solve(lines: &[String]) -> Solution {
     let h: usize = lines.iter().filter(|line| !line.is_empty()).count();
-    let mut game: Game = lines
+    let game: Game = lines
         .iter()
         .filter(|line| !line.is_empty())
         .enumerate()
-        .fold(Game::default(), |game, (r, line)| {
-            line.chars().enumerate().fold(game, |mut game, (c, chr)| {
-                if chr == '#' {
-                    game.maxxc = std::cmp::max(game.maxxc, c);
-                    game.maxxr = std::cmp::max(game.maxxr, r);
-                }
+        .fold(Game::default(), |mut game, (r, line)| {
+            game.inner_w = std::cmp::max(game.inner_w, line.len() - 2);
+            game.inner_h = h - 2;
 
+            game.blizzards_right.resize(game.inner_h, 0);
+            game.blizzards_left.resize(game.inner_h, 0);
+            game.blizzards_up.resize(game.inner_h, 0);
+            game.blizzards_down.resize(game.inner_h, 0);
+
+            let inner_r = r.saturating_sub(1);
+
+            line.chars().enumerate().fold(game, |mut game, (c, chr)| {
+                let inner_c = c.saturating_sub(1);
                 if r == 0 {
                     if chr == '.' {
-                        game.start = Point(r, c);
+                        game.start_inner_c = inner_c;
                     } else {
                         assert_eq!(chr, '#');
                     }
                 } else if r == h - 1 {
                     if chr == '.' {
-                        game.goal = Point(r, c);
+                        game.goal_inner_c = inner_c;
                     } else {
                         assert_eq!(chr, '#');
                     }
                 } else {
-                    if chr != '#' {
-                        let inner_h = std::cmp::max(game.blizzards_down.len(), r);
-                        let inner_w = std::cmp::max(game.blizzards_right.len(), c);
-
-                        game.blizzards_right.resize(inner_w, 0);
-                        game.blizzards_left.resize(inner_w, 0);
-                        game.blizzards_up.resize(inner_h, 0);
-                        game.blizzards_down.resize(inner_h, 0);
-                    }
-
                     match chr {
-                        '>' => game.blizzards_right[c - 1] |= 1 << r,
-                        '<' => game.blizzards_left[c - 1] |= 1 << r,
-                        '^' => game.blizzards_up[r - 1] |= 1 << c,
-                        'v' => game.blizzards_down[r - 1] |= 1 << c,
+                        '>' => {
+                            game.blizzards_right[inner_r] |= 1 << inner_c;
+                        }
+                        '<' => {
+                            game.blizzards_left[inner_r] |= 1 << inner_c;
+                        }
+                        '^' => {
+                            game.blizzards_up[inner_r] |= 1 << inner_c;
+                        }
+                        'v' => {
+                            game.blizzards_down[inner_r] |= 1 << inner_c;
+                        }
                         _ => assert!(chr == '#' || chr == '.'),
                     }
                 }
@@ -234,12 +156,6 @@ pub fn solve(lines: &[String]) -> Solution {
                 game
             })
         });
-    game.minic = 1;
-    game.minir = 1;
-    game.inner_h = game.blizzards_down.len();
-    game.inner_w = game.blizzards_right.len();
-    game.period = lcm(game.maxxr - game.minir, game.maxxc - game.minic);
-    game.trip_len = game.goal.abs_diff(game.start);
 
     (solve_a(&game).to_string(), solve_b(&game).to_string())
 }
