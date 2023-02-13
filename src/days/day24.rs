@@ -12,29 +12,11 @@ struct Game {
     blizzards_left: Vec<u128>,
 }
 
-impl Game {
-    fn blizzard_mask(&self, t: usize, inner_r: usize) -> u128 {
-        let neg1 = self.inner_h - 1;
-        let tc = t % self.inner_w;
-        let tr = t % self.inner_h;
-
-        let blizzard_up = self.blizzards_up[(inner_r + tr) % self.inner_h];
-        let blizzard_down = self.blizzards_down[(inner_r + neg1 * tr) % self.inner_h];
-
-        let blizzard_left = (self.blizzards_left[inner_r] >> tc)
-            | ((self.blizzards_left[inner_r] & ((1 << tc) - 1)) << (self.inner_w - tc));
-
-        let blizzard_right = (self.blizzards_right[inner_r] << tc)
-            | ((self.blizzards_right[inner_r] >> (self.inner_w - tc)) & ((1 << tc) - 1));
-
-        blizzard_up | blizzard_down | blizzard_left | blizzard_right
-    }
-}
-
 // Solution method by @Hadopire on GitHub
 // https://github.com/hadopire/adventofcode_2022/blob/8c4526dd8eb14648a6c31b172f43d32c2a3d301f/d24.odin
 fn search(game: &Game, mut trips_left: usize) -> usize {
     let h = game.inner_h + 2;
+    let inner_h_sub1 = game.inner_h - 1;
     let inbounds_mask_r0: u128 = 1 << game.start_inner_c;
     let inbounds_mask: u128 = (1 << game.inner_w) - 1;
     let inbounds_mask_rmax: u128 = 1 << game.goal_inner_c;
@@ -43,6 +25,9 @@ fn search(game: &Game, mut trips_left: usize) -> usize {
     let mut pos: Vec<u128> = vec![0; h];
     pos[0] = inbounds_mask_r0;
     let mut prev_pos: Vec<u128>;
+
+    let mut blizzards_left = game.blizzards_left.clone();
+    let mut blizzards_right = game.blizzards_right.clone();
 
     loop {
         prev_pos = pos.clone();
@@ -56,11 +41,18 @@ fn search(game: &Game, mut trips_left: usize) -> usize {
         for r in 1..(h - 1) {
             let moved_left = prev_pos[r] >> 1;
             let moved_right = prev_pos[r] << 1;
-
             let moved_down = prev_pos[r - 1];
             let moved_up = prev_pos[r + 1];
 
-            let blizzard_mask = game.blizzard_mask(t, r - 1);
+            let blizzard_mask = {
+                let inner_r = r - 1;
+                let tr = t % game.inner_h;
+                let blizzard_up = game.blizzards_up[(inner_r + tr) % game.inner_h];
+                let blizzard_down =
+                    game.blizzards_down[(inner_r + inner_h_sub1 * tr) % game.inner_h];
+
+                blizzard_up | blizzard_down | blizzards_left[inner_r] | blizzards_right[inner_r]
+            };
 
             pos[r] = (inbounds_mask ^ blizzard_mask)
                 & (prev_pos[r] | moved_left | moved_right | moved_down | moved_up);
@@ -89,6 +81,15 @@ fn search(game: &Game, mut trips_left: usize) -> usize {
             }
 
             trips_left -= 1;
+        }
+
+        for r in 0..game.inner_h {
+            blizzards_left[r] = ((blizzards_left[r] >> 1)
+                | ((blizzards_left[r] & 1) << (game.inner_w - 1)))
+                & inbounds_mask;
+            blizzards_right[r] = ((blizzards_right[r] << 1)
+                | ((blizzards_right[r] >> (game.inner_w - 1)) & 1))
+                & inbounds_mask;
         }
 
         t += 1;
