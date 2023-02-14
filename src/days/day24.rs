@@ -28,6 +28,7 @@ fn search(game: &Game, mut trips_left: usize) -> usize {
 
     let mut blizzards_left = game.blizzards_left.clone();
     let mut blizzards_right = game.blizzards_right.clone();
+    let mut blizzard_down_offset = 0;
 
     loop {
         prev_pos = pos.clone();
@@ -46,10 +47,9 @@ fn search(game: &Game, mut trips_left: usize) -> usize {
 
             let blizzard_mask = {
                 let inner_r = r - 1;
-                let tr = t % game.inner_h;
-                let blizzard_up = game.blizzards_up[(inner_r + tr) % game.inner_h];
+                let blizzard_up = game.blizzards_up[(inner_r + t) % game.inner_h];
                 let blizzard_down =
-                    game.blizzards_down[(inner_r + inner_h_sub1 * tr) % game.inner_h];
+                    game.blizzards_down[(inner_r + blizzard_down_offset) % game.inner_h];
 
                 blizzard_up | blizzard_down | blizzards_left[inner_r] | blizzards_right[inner_r]
             };
@@ -93,6 +93,7 @@ fn search(game: &Game, mut trips_left: usize) -> usize {
         }
 
         t += 1;
+        blizzard_down_offset += inner_h_sub1;
     }
 }
 
