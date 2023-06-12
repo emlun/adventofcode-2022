@@ -1,6 +1,7 @@
 use crate::common::Solution;
 
 type Resources = [u32; 4];
+const GEODE: usize = 3;
 
 #[derive(Debug)]
 struct Blueprint {
@@ -25,9 +26,9 @@ impl State {
     fn max_potential(&self) -> u32 {
         let dt = self.t;
         if dt > 0 {
-            self.resources[3] + self.robots[3] * dt + (dt * (dt - 1)) / 2
+            self.resources[GEODE] + self.robots[GEODE] * dt + (dt * (dt - 1)) / 2
         } else {
-            self.resources[3]
+            self.resources[GEODE]
         }
     }
 }
@@ -70,7 +71,7 @@ where
 }
 
 fn recipe_is_relevant(state: &State, recipe: &Recipe, blueprint: &Blueprint) -> bool {
-    recipe.output == 3
+    recipe.output == GEODE
         || blueprint
             .recipes
             .iter()
@@ -104,7 +105,7 @@ fn search(blueprint: &Blueprint, max_t: u32) -> u32 {
     fn recurse(state: &State, blueprint: &Blueprint, mut best: u32) -> u32 {
         for next_state in generate_moves(&state, blueprint) {
             if next_state.max_potential() > best {
-                best = std::cmp::max(best, next_state.resources[3]);
+                best = std::cmp::max(best, next_state.resources[GEODE]);
                 best = std::cmp::max(best, recurse(&next_state, blueprint, best));
             }
         }
@@ -117,7 +118,7 @@ fn search(blueprint: &Blueprint, max_t: u32) -> u32 {
         robots: [1, 0, 0, 0],
     };
 
-    recurse(&init_state, blueprint, init_state.resources[3])
+    recurse(&init_state, blueprint, init_state.resources[GEODE])
 }
 
 fn solve_a(blueprints: &[Blueprint], max_t: u32) -> u32 {
@@ -217,7 +218,7 @@ pub fn solve(lines: &[String]) -> Solution {
                         ingredients: [obsidian_bot.0, obsidian_bot.1, 0, 0],
                     },
                     Recipe {
-                        output: 3,
+                        output: GEODE,
                         ingredients: [geode_bot.0, 0, geode_bot.1, 0],
                     },
                 ],
