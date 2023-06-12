@@ -1,5 +1,3 @@
-use std::collections::BinaryHeap;
-
 use crate::common::Solution;
 
 type Resources = [u32; 4];
@@ -23,32 +21,14 @@ struct State {
     robots: Resources,
 }
 
-#[derive(Eq, PartialEq)]
-struct MaxPotentialWrapper {
-    state: State,
-    max_potential: u32,
-}
-
-impl From<State> for MaxPotentialWrapper {
-    fn from(state: State) -> Self {
-        let dt = state.t;
-        let max_potential = state.resources[3] + state.robots[3] * dt + (dt * (dt - 1)) / 2;
-        Self {
-            state,
-            max_potential,
+impl State {
+    fn max_potential(&self) -> u32 {
+        let dt = self.t;
+        if dt > 0 {
+            self.resources[3] + self.robots[3] * dt + (dt * (dt - 1)) / 2
+        } else {
+            self.resources[3]
         }
-    }
-}
-
-impl PartialOrd for MaxPotentialWrapper {
-    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(rhs))
-    }
-}
-
-impl Ord for MaxPotentialWrapper {
-    fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
-        (self.max_potential, self.state.robots[3]).cmp(&(rhs.max_potential, rhs.state.robots[3]))
     }
 }
 
@@ -120,44 +100,36 @@ fn time_to_afford_recipe(state: &State, recipe: &Recipe) -> Option<u32> {
         })
 }
 
-fn astar(blueprint: &Blueprint, max_t: u32) -> u32 {
-    let mut queue: BinaryHeap<MaxPotentialWrapper> = BinaryHeap::new();
-    let mut best = 0;
+fn search(blueprint: &Blueprint, max_t: u32) -> u32 {
+    fn recurse(state: &State, blueprint: &Blueprint, mut best: u32) -> u32 {
+        for next_state in generate_moves(&state, blueprint) {
+            if next_state.max_potential() > best {
+                best = std::cmp::max(best, next_state.resources[3]);
+                best = std::cmp::max(best, recurse(&next_state, blueprint, best));
+            }
+        }
+        best
+    }
 
     let init_state = State {
         t: max_t,
         resources: [0; 4],
         robots: [1, 0, 0, 0],
     };
-    queue.push(init_state.into());
 
-    while let Some(MaxPotentialWrapper {
-        state,
-        max_potential,
-    }) = queue.pop()
-    {
-        if max_potential <= best {
-            return best;
-        } else {
-            for next_state in generate_moves(&state, blueprint) {
-                let next_state_final_geodes =
-                    next_state.resources[3] + next_state.robots[3] * next_state.t;
-                best = std::cmp::max(best, next_state_final_geodes);
-                if next_state.t > 0 {
-                    queue.push(next_state.into());
-                }
-            }
-        }
-    }
-    best
+    recurse(&init_state, blueprint, init_state.resources[3])
 }
 
 fn solve_a(blueprints: &[Blueprint], max_t: u32) -> u32 {
-    blueprints.iter().map(|b| b.id * astar(b, max_t)).sum()
+    blueprints.iter().map(|b| b.id * search(b, max_t)).sum()
 }
 
 fn solve_b(blueprints: &[Blueprint], max_t: u32) -> u32 {
-    blueprints.iter().take(3).map(|b| astar(b, max_t)).product()
+    blueprints
+        .iter()
+        .take(3)
+        .map(|b| search(b, max_t))
+        .product()
 }
 
 pub fn solve(lines: &[String]) -> Solution {
