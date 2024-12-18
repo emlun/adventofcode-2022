@@ -1,0 +1,4 @@
+[submodule "inputs"]
+	path = inputs
+	url = emlun.se:/data/emlun/git/adventofcode-inputs.git
+	branch = 2022
